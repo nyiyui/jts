@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
@@ -68,7 +69,7 @@ func (d *Database) GetSession(id int) (data.Session, error) {
 		return data.Session{}, err
 	}
 	var timeframes []data.Timeframe
-	err = d.DB.Select(&timeframes, "SELECT * FROM timeframes WHERE session_id = ?", id)
+	err = d.DB.Select(&timeframes, "SELECT * FROM time_frames WHERE session_id = ?", id)
 	if err != nil {
 		return data.Session{}, err
 	}
@@ -87,7 +88,7 @@ func (d *Database) AddSession(session data.Session) (int, error) {
 		return 0, err
 	}
 	for _, tf := range session.Timeframes {
-		_, err := tx.Exec("INSERT INTO timeframes (session_id, start_time, end_time) VALUES (?, ?, ?)", id, tf.Start, tf.End)
+		_, err := tx.Exec("INSERT INTO time_frames (session_id, start_time, end_time) VALUES (?, ?, ?)", id, tf.Start, tf.End)
 		if err != nil {
 			return 0, err
 		}
@@ -97,7 +98,16 @@ func (d *Database) AddSession(session data.Session) (int, error) {
 
 func (d *Database) AddTimeframe(sessionID int, tf data.Timeframe) error {
 	tx := d.DB.MustBegin()
-	_, err := tx.Exec("INSERT INTO timeframes (session_id, start_time, end_time) VALUES (?, ?, ?)", sessionID, tf.Start, tf.End)
+	_, err := tx.Exec("INSERT INTO time_frames (session_id, start_time, end_time) VALUES (?, ?, ?)", sessionID, tf.Start, tf.End)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (d *Database) ExtendSession(sessionID int, extendTo time.Time) error {
+	tx := d.DB.MustBegin()
+	_, err := tx.Exec("UPDATE time_frames SET end_time = ? WHERE session_id = ? AND end_time = (SELECT MAX(end_time) FROM time_frames WHERE session_id = ?)", extendTo, sessionID, sessionID)
 	if err != nil {
 		return err
 	}

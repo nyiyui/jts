@@ -29,6 +29,7 @@
             go
             sqlitebrowser
             gdb
+            goose
           ];
         };
       }

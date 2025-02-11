@@ -7,6 +7,7 @@ import "time"
 type Session struct {
 	ID          int    `db:"id"`
 	Description string `db:"description"`
+	Notes       string `db:"notes"`
 	Timeframes  []Timeframe
 }
 

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"time"
 
 	_ "embed"
 
@@ -42,13 +44,57 @@ func activate(app *gtk.Application, db *database.Database) {
 	log.Printf("loaded %d sessions", len(sessions))
 	m.FillFromSlice(sessions)
 	log.Print("a")
-	m2 := gtk.NewSingleSelection(m)
+	m2 := gtk.NewNoSelection(m)
 	log.Print("b")
 	currentListView.SetModel(m2)
-	//m := gtk.NewNoSelection(gtk.NewStringList([]string{"one", "two", "three"}))
-	//currentListView.SetModel(m)
 	log.Print("c")
-	factory := gtk.NewBuilderListItemFactoryFromBytes(nil, glib.NewBytes([]byte(gtkui.SessionRowXML)))
+	factory := gtk.NewSignalListItemFactory()
+	// we can't use builder factory as it doesn't support introspection of Go objects
+	factory.ConnectSetup(func(object *glib.Object) {
+		listItem := object.Cast().(*gtk.ListItem)
+		label := gtk.NewLabel("")
+		label.SetHExpand(true)
+		timeframes := gtk.NewBox(gtk.OrientationHorizontal, 0)
+		for _, tf := range sessions[0].Timeframes {
+			text := fmt.Sprintf("%s - %s", tf.Start.Local(), tf.End.Local())
+			timeframes.Append(gtk.NewLabel(text))
+		}
+		actions := gtk.NewBox(gtk.OrientationHorizontal, 0)
+		extend := gtk.NewButton()
+		extend.SetLabel("最新は現在")
+		extend.ConnectClicked(func() {
+			log.Print("extend")
+			err := db.ExtendSession(sessions[0].ID, time.Now())
+			if err != nil {
+				panic(err)
+			}
+		})
+		edit := gtk.NewButton()
+		edit.SetLabel("修正")
+		actions.Append(extend)
+		actions.Append(edit)
+		actions.SetHAlign(gtk.AlignEnd)
+		box := gtk.NewBox(gtk.OrientationVertical, 0)
+		box.Append(label)
+		box.Append(timeframes)
+		box.Append(actions)
+		listItem.SetChild(box)
+	})
+	factory.ConnectBind(func(object *glib.Object) {
+		listItem := object.Cast().(*gtk.ListItem)
+		box := listItem.Child().(*gtk.Box)
+		label := box.FirstChild().(*gtk.Label)
+		session := gtkui.SessionListModelType.ObjectValue(listItem.Item())
+		label.SetText(session.Description)
+	})
+	factory.ConnectUnbind(func(object *glib.Object) {
+		// nothing to do
+	})
+	factory.ConnectTeardown(func(object *glib.Object) {
+		listItem := object.Cast().(*gtk.ListItem)
+		label := listItem.Child().(*gtk.Box)
+		label.Unparent()
+	})
 	log.Print("d")
 	currentListView.SetFactory(&factory.ListItemFactory)
 	log.Print("e")

@@ -5,14 +5,14 @@ import (
 	"nyiyui.ca/jts/data"
 )
 
-var sessionListModelType = gioutil.NewListModelType[data.Session]()
+var SessionListModelType = gioutil.NewListModelType[data.Session]()
 
 type SessionListModel struct {
 	*gioutil.ListModel[data.Session]
 }
 
 func NewSessionListModel() *SessionListModel {
-	return &SessionListModel{sessionListModelType.New()}
+	return &SessionListModel{SessionListModelType.New()}
 }
 
 func (m *SessionListModel) FillFromSlice(sessions []data.Session) {
