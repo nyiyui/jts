@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE sessions (
   id INTEGER PRIMARY KEY,
-  description TEXT NOT NULL,
+  description TEXT NOT NULL
 );
 
 CREATE TABLE time_frames (

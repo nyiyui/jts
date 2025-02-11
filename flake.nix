@@ -26,6 +26,9 @@
             gobject-introspection
             pkg-config
             cambalache
+            go
+            sqlitebrowser
+            gdb
           ];
         };
       }

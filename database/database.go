@@ -2,8 +2,12 @@ package database
 
 import (
 	"embed"
+	"fmt"
+	"path/filepath"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/kirsle/configdir"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 	"nyiyui.ca/jts/data"
 )
@@ -13,6 +17,20 @@ var migrations embed.FS
 
 type Database struct {
 	DB *sqlx.DB
+}
+
+func NewDatabase() (*Database, error) {
+	path := configdir.LocalConfig("jts")
+	if err := configdir.MakePath(path); err != nil {
+		return nil, fmt.Errorf("failed to create config dir: %w", err)
+	}
+	dbPath := filepath.Join(path, "jts.db")
+
+	db, err := sqlx.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	return &Database{DB: db}, nil
 }
 
 func (d *Database) Migrate() error {
@@ -30,13 +48,13 @@ func (d *Database) GetLatestSessions(limit, offset int) ([]data.Session, error) 
 	var sessions []data.Session
 	err := d.DB.Select(&sessions, "SELECT * FROM sessions ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get sessions: %w", err)
 	}
 	for i := range sessions {
 		var timeframes []data.Timeframe
-		err = d.DB.Select(&timeframes, "SELECT * FROM timeframes WHERE session_id = ?", sessions[i].ID)
+		err = d.DB.Select(&timeframes, "SELECT * FROM time_frames WHERE session_id = ?", sessions[i].ID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get timeframes for session %d: %w", sessions[i].ID, err)
 		}
 		sessions[i].Timeframes = timeframes
 	}
