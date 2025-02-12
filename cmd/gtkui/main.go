@@ -33,8 +33,18 @@ func main() {
 }
 
 func activate(app *gtk.Application, db *database.Database) {
-	builder := gtk.NewBuilderFromString(gtkui.UIXML)
-	window := builder.GetObject("MainWindow").Cast().(*gtk.Window)
+	builder := gtk.NewBuilderFromString(gtkui.MainWindowXML)
+	window := builder.GetObject("MainWindow").Cast().(*gtk.ApplicationWindow)
+
+	newSessionButton := builder.GetObject("NewSessionButton").Cast().(*gtk.Button)
+	newSessionButton.ConnectClicked(func() {
+		nsw := gtkui.NewNewSessionWindow(db)
+		nsw.Window.SetTransientFor(&window.Window)
+		nsw.Window.SetDestroyWithParent(true) // TODO: dialog lives on (after MainWindow is closed) somehow
+		nsw.Window.SetApplication(app)
+		nsw.Window.Show()
+	})
+
 	currentListView := builder.GetObject("CurrentListView").Cast().(*gtk.ListView)
 	m := gtkui.NewSessionListModel()
 	sessions, err := db.GetLatestSessions(10, 0)
@@ -54,23 +64,10 @@ func activate(app *gtk.Application, db *database.Database) {
 		listItem := object.Cast().(*gtk.ListItem)
 		label := gtk.NewLabel("")
 		label.SetHExpand(true)
-		timeframes := gtk.NewBox(gtk.OrientationHorizontal, 0)
-		for _, tf := range sessions[0].Timeframes {
-			text := fmt.Sprintf("%s - %s", tf.Start.Local(), tf.End.Local())
-			timeframes.Append(gtk.NewLabel(text))
-		}
+		timeframes := gtk.NewLabel("")
 		actions := gtk.NewBox(gtk.OrientationHorizontal, 0)
-		extend := gtk.NewButton()
-		extend.SetLabel("最新は現在")
-		extend.ConnectClicked(func() {
-			log.Print("extend")
-			err := db.ExtendSession(sessions[0].ID, time.Now())
-			if err != nil {
-				panic(err)
-			}
-		})
-		edit := gtk.NewButton()
-		edit.SetLabel("修正")
+		extend := gtk.NewButtonWithLabel("最新は現在")
+		edit := gtk.NewButtonWithLabel("修正")
 		actions.Append(extend)
 		actions.Append(edit)
 		actions.SetHAlign(gtk.AlignEnd)
@@ -84,8 +81,29 @@ func activate(app *gtk.Application, db *database.Database) {
 		listItem := object.Cast().(*gtk.ListItem)
 		box := listItem.Child().(*gtk.Box)
 		label := box.FirstChild().(*gtk.Label)
+		timeframes := label.NextSibling().(*gtk.Label)
+		actions := timeframes.NextSibling().(*gtk.Box)
 		session := gtkui.SessionListModelType.ObjectValue(listItem.Item())
 		label.SetText(session.Description)
+		text := ""
+		for _, tf := range session.Timeframes {
+			text += fmt.Sprintf("%s - %s", tf.Start.Local(), tf.End.Local())
+		}
+		timeframes.SetText(text)
+		extend := actions.FirstChild().(*gtk.Button)
+		extend.ConnectClicked(func() {
+			err := db.ExtendSession(session.ID, time.Now())
+			if err != nil {
+				panic(err)
+			}
+		})
+		edit := extend.NextSibling().(*gtk.Button)
+		edit.ConnectClicked(func() {
+			esw := gtkui.NewEditSessionWindow(db, session.ID)
+			esw.Window.SetTransientFor(&window.Window)
+			esw.Window.SetApplication(app)
+			esw.Window.Show()
+		})
 	})
 	factory.ConnectUnbind(func(object *glib.Object) {
 		// nothing to do
@@ -98,11 +116,7 @@ func activate(app *gtk.Application, db *database.Database) {
 	log.Print("d")
 	currentListView.SetFactory(&factory.ListItemFactory)
 	log.Print("e")
-	//lv2 := gtk.NewListView(m, &factory.ListItemFactory)
-	//log.Print("f")
-	//window.SetChild(lv2)
-	//log.Print("g")
 
-	app.AddWindow(window)
+	window.SetApplication(app)
 	window.Show()
 }

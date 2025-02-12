@@ -4,6 +4,8 @@ github.com/KarpelesLab/weak v0.1.1 h1:fNnlPo3aypS9tBzoEQluY13XyUfd/eWaSE/vMvo9s4
 github.com/KarpelesLab/weak v0.1.1/go.mod h1:pzXsWs5f2bf+fpgHayTlBE1qJpO3MpJKo5sRaLu1XNw=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/diamondburned/gotk4-adwaita/pkg v0.0.0-20240712143708-824c3ce8a5f4 h1:LIOh9NaVui4TaCLbWHe3Yn/7liGdWgH2LsUp+xhTqkw=
+github.com/diamondburned/gotk4-adwaita/pkg v0.0.0-20240712143708-824c3ce8a5f4/go.mod h1:fkvdR7MYO1sI0ex07VYLTc+YK87v24aRFYyMJQ/xAeA=
 github.com/diamondburned/gotk4/pkg v0.3.1 h1:uhkXSUPUsCyz3yujdvl7DSN8jiLS2BgNTQE95hk6ygg=
 github.com/diamondburned/gotk4/pkg v0.3.1/go.mod h1:DqeOW+MxSZFg9OO+esk4JgQk0TiUJJUBfMltKhG+ub4=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
@@ -22,7 +24,6 @@ github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
 github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
-github.com/mattn/go-sqlite3 v1.14.22 h1:2gZY6PC6kBnID23Tichd1K+Z0oS6nE/XwU+Vz/5o4kU=
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/mattn/go-sqlite3 v1.14.24 h1:tpSp2G2KyMnnQu99ngJ47EIkWVmliIizyZBfPrBWDRM=
 github.com/mattn/go-sqlite3 v1.14.24/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=

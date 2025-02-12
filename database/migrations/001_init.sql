@@ -1,12 +1,14 @@
 -- +goose Up
 CREATE TABLE sessions (
-  id INTEGER PRIMARY KEY,
+  rowid INTEGER PRIMARY KEY,
+  id TEXT UNIQUE DEFAULT (lower(hex(randomblob(16)))),
   description TEXT NOT NULL
 );
 
 CREATE TABLE time_frames (
-  id INTEGER PRIMARY KEY,
-  session_id INTEGER NOT NULL,
+  rowid INTEGER PRIMARY KEY,
+  id TEXT UNIQUE DEFAULT (lower(hex(randomblob(16)))),
+  session_id TEXT NOT NULL,
   start_time DATETIME NOT NULL, -- in Unix time
   end_time DATETIME NOT NULL, -- in Unix time
   FOREIGN KEY(session_id) REFERENCES sessions(id)

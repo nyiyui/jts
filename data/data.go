@@ -5,15 +5,15 @@ import "time"
 // Session represents one (possible non-continuous) session of some activity.
 // Example: one gaming session, playing Mario Kart
 type Session struct {
-	ID          int    `db:"id"`
+	ID          string `db:"id"`
 	Description string `db:"description"`
 	Notes       string `db:"notes"`
 	Timeframes  []Timeframe
 }
 
 type Timeframe struct {
-	ID        int       `db:"id"`
-	SessionID int       `db:"session_id"`
+	ID        string    `db:"id"`
+	SessionID string    `db:"session_id"`
 	Start     time.Time `db:"start_time"`
 	End       time.Time `db:"end_time"`
 }

@@ -20,16 +20,16 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             nixfmt-rfc-style
-          ];
-          nativeBuildInputs = with pkgs; [
-            gtk4
-            gobject-introspection
-            pkg-config
-            cambalache
             go
             sqlitebrowser
             gdb
             goose
+          ];
+          nativeBuildInputs = with pkgs; [
+            gtk4
+            libadwaita
+            gobject-introspection
+            pkg-config
           ];
         };
       }

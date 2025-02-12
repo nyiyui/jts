@@ -1,9 +1,11 @@
 package gtkui
 
-import _ "embed"
+import (
+	_ "embed"
+)
 
-//go:embed gtkui.ui
-var UIXML string
+//go:embed main_window.ui
+var MainWindowXML string
 
-//go:embed SessionRow.ui
+//go:embed session_row.ui
 var SessionRowXML string

@@ -47,29 +47,29 @@ func (d *Database) Migrate() error {
 
 func (d *Database) GetLatestSessions(limit, offset int) ([]data.Session, error) {
 	var sessions []data.Session
-	err := d.DB.Select(&sessions, "SELECT * FROM sessions ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+	err := d.DB.Select(&sessions, "SELECT id, description, notes FROM sessions ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("get sessions: %w", err)
 	}
 	for i := range sessions {
 		var timeframes []data.Timeframe
-		err = d.DB.Select(&timeframes, "SELECT * FROM time_frames WHERE session_id = ?", sessions[i].ID)
+		err = d.DB.Select(&timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames WHERE session_id = ?", sessions[i].ID)
 		if err != nil {
-			return nil, fmt.Errorf("get timeframes for session %d: %w", sessions[i].ID, err)
+			return nil, fmt.Errorf("get timeframes for session %s: %w", sessions[i].ID, err)
 		}
 		sessions[i].Timeframes = timeframes
 	}
 	return sessions, nil
 }
 
-func (d *Database) GetSession(id int) (data.Session, error) {
+func (d *Database) GetSession(id string) (data.Session, error) {
 	var session data.Session
-	err := d.DB.Get(&session, "SELECT * FROM sessions WHERE id = ?", id)
+	err := d.DB.Get(&session, "SELECT id, description, notes FROM sessions WHERE id = ?", id)
 	if err != nil {
 		return data.Session{}, err
 	}
 	var timeframes []data.Timeframe
-	err = d.DB.Select(&timeframes, "SELECT * FROM time_frames WHERE session_id = ?", id)
+	err = d.DB.Select(&timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames WHERE session_id = ?", id)
 	if err != nil {
 		return data.Session{}, err
 	}
@@ -77,26 +77,31 @@ func (d *Database) GetSession(id int) (data.Session, error) {
 	return session, nil
 }
 
-func (d *Database) AddSession(session data.Session) (int, error) {
+func (d *Database) AddSession(session data.Session) (string, error) {
 	tx := d.DB.MustBegin()
 	res, err := tx.Exec("INSERT INTO sessions (description) VALUES (?)", session.Description)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
-	id, err := res.LastInsertId()
+	rowid, err := res.LastInsertId()
 	if err != nil {
-		return 0, err
+		return "", err
+	}
+	var id string
+	err = tx.Get(&id, "SELECT id FROM sessions WHERE rowid = ?", rowid)
+	if err != nil {
+		return "", err
 	}
 	for _, tf := range session.Timeframes {
 		_, err := tx.Exec("INSERT INTO time_frames (session_id, start_time, end_time) VALUES (?, ?, ?)", id, tf.Start, tf.End)
 		if err != nil {
-			return 0, err
+			return "", err
 		}
 	}
-	return int(id), tx.Commit()
+	return id, tx.Commit()
 }
 
-func (d *Database) AddTimeframe(sessionID int, tf data.Timeframe) error {
+func (d *Database) AddTimeframe(sessionID string, tf data.Timeframe) error {
 	tx := d.DB.MustBegin()
 	_, err := tx.Exec("INSERT INTO time_frames (session_id, start_time, end_time) VALUES (?, ?, ?)", sessionID, tf.Start, tf.End)
 	if err != nil {
@@ -105,9 +110,27 @@ func (d *Database) AddTimeframe(sessionID int, tf data.Timeframe) error {
 	return tx.Commit()
 }
 
-func (d *Database) ExtendSession(sessionID int, extendTo time.Time) error {
+func (d *Database) ExtendSession(sessionID string, extendTo time.Time) error {
 	tx := d.DB.MustBegin()
 	_, err := tx.Exec("UPDATE time_frames SET end_time = ? WHERE session_id = ? AND end_time = (SELECT MAX(end_time) FROM time_frames WHERE session_id = ?)", extendTo, sessionID, sessionID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (d *Database) EditSessionProperties(session data.Session) error {
+	tx := d.DB.MustBegin()
+	_, err := tx.Exec("UPDATE sessions SET description = ?, notes = ? WHERE id = ?", session.Description, session.Notes, session.ID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (d *Database) DeleteSession(id string) error {
+	tx := d.DB.MustBegin()
+	_, err := tx.Exec("DELETE FROM sessions WHERE id = ?", id)
 	if err != nil {
 		return err
 	}
