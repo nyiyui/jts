@@ -1,13 +1,18 @@
 package database
 
 import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
 	"embed"
 	"fmt"
+	"log"
 	"path/filepath"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 	"nyiyui.ca/jts/data"
@@ -17,7 +22,35 @@ import (
 var migrations embed.FS
 
 type Database struct {
-	DB *sqlx.DB
+	DB        *sqlx.DB
+	notifyFns []UpdateHookFn
+}
+
+type connector struct {
+	conns  []*sqlite3.SQLiteConn
+	driver *sqlite3.SQLiteDriver
+	dsn    string
+}
+
+func newConnector(dsn string, hook UpdateHookFn) *connector {
+	c := new(connector)
+	c.dsn = dsn
+	c.driver = &sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			c.conns = append(c.conns, conn)
+			conn.RegisterUpdateHook(hook)
+			return nil
+		},
+	}
+	return c
+}
+
+func (c *connector) Connect(ctx context.Context) (driver.Conn, error) {
+	return c.driver.Open(c.dsn)
+}
+
+func (c *connector) Driver() driver.Driver {
+	return c.driver
 }
 
 func NewDatabase() (*Database, error) {
@@ -27,11 +60,15 @@ func NewDatabase() (*Database, error) {
 	}
 	dbPath := filepath.Join(path, "jts.db")
 
-	db, err := sqlx.Open("sqlite3", dbPath)
+	db := new(Database)
+	c := newConnector(dbPath, db.updateHook)
+	db_ := sql.OpenDB(c)
+	err := db_.Ping()
 	if err != nil {
 		return nil, err
 	}
-	return &Database{DB: db}, nil
+	db.DB = sqlx.NewDb(db_, "sqlite3")
+	return db, nil
 }
 
 func (d *Database) Migrate() error {
@@ -135,4 +172,20 @@ func (d *Database) DeleteSession(id string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// UpdateHookFn is called when a database update is made.
+// op is one of SQLITE_INSERT, SQLITE_UPDATE, SQLITE_DELETE.
+// cf. sqlite3.SQLiteConn.RegisterUpdateHook
+type UpdateHookFn func(op int, name, table string, rowid int64)
+
+func (d *Database) Notify(fn UpdateHookFn) {
+	d.notifyFns = append(d.notifyFns, fn)
+}
+
+func (d *Database) updateHook(op int, name, table string, rowid int64) {
+	log.Println("updateHook", op, name, table, rowid)
+	for _, fn := range d.notifyFns {
+		go fn(op, name, table, rowid)
+	}
 }

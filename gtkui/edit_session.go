@@ -3,6 +3,7 @@ package gtkui
 import (
 	_ "embed"
 	"fmt"
+	"log"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -52,10 +53,12 @@ func (esw *EditSessionWindow) save() {
 	err := esw.db.EditSessionProperties(data.Session{
 		Description: esw.SessionDescription.Buffer().Text(),
 		Notes:       buf.Text(buf.StartIter(), buf.EndIter(), false),
+		ID:          esw.sessionID,
 	})
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("Session %s updated", esw.SessionId.Label())
 	esw.Window.Close()
 }
 
