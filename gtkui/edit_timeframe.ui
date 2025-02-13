@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <interface>
   <requires lib="gtk" version="4.6"/>
-  <object class="GtkWindow" id="EditSessionWindow">
+  <object class="GtkWindow" id="EditTimeframeWindow">
     <property name="titlebar">
       <object class="GtkHeaderBar">
         <child>
@@ -16,12 +16,12 @@
         </child>
       </object>
     </property>
-    <property name="title">セッションを修正</property>
+    <property name="title">打刻を修正</property>
     <child>
       <object class="GtkGrid">
         <child>
           <object class="GtkLabel">
-            <property name="label">セッション番号</property>
+            <property name="label">打刻番号</property>
             <layout>
               <property name="column">0</property>
               <property name="row">0</property>
@@ -29,7 +29,7 @@
           </object>
         </child>
         <child>
-          <object class="GtkLabel" id="SessionId">
+          <object class="GtkLabel" id="TimeframeId">
             <property name="selectable">true</property>
             <layout>
               <property name="column">1</property>
@@ -39,7 +39,7 @@
         </child>
         <child>
           <object class="GtkLabel">
-            <property name="label">セッション名</property>
+            <property name="label">開始時刻</property>
             <layout>
               <property name="column">0</property>
               <property name="row">1</property>
@@ -47,7 +47,7 @@
           </object>
         </child>
         <child>
-          <object class="GtkEntry" id="SessionDescription">
+          <object class="GtkEntry" id="TimeframeStart">
             <property name="hexpand">true</property>
             <layout>
               <property name="column">1</property>
@@ -56,37 +56,35 @@
           </object>
         </child>
         <child>
-          <object class="GtkLabel">
-            <property name="label">備考</property>
-            <layout>
-              <property name="column">0</property>
-              <property name="row">2</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="GtkTextView" id="SessionNotes">
+          <object class="GtkLabel" id="TimeframeStartHint">
             <property name="hexpand">true</property>
-            <layout>
-              <property name="column">1</property>
-              <property name="row">2</property>
-            </layout>
-          </object>
-        </child>
-        <child>
-          <object class="GtkLabel">
-            <property name="hexpand">true</property>
-            <property name="label">打刻一覧</property>
             <layout>
               <property name="column">0</property>
               <property name="column-span">2</property>
+              <property name="row">2</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="label">終了時刻</property>
+            <layout>
+              <property name="column">0</property>
               <property name="row">3</property>
             </layout>
           </object>
         </child>
         <child>
-          <object class="GtkColumnView" id="Timeframes">
-            <property name="show-row-separators">true</property>
+          <object class="GtkEntry" id="TimeframeEnd">
+            <property name="hexpand">true</property>
+            <layout>
+              <property name="column">1</property>
+              <property name="row">3</property>
+            </layout>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="TimeframeEndHint">
             <property name="hexpand">true</property>
             <layout>
               <property name="column">0</property>

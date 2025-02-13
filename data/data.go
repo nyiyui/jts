@@ -18,6 +18,22 @@ type Timeframe struct {
 	End       time.Time `db:"end_time"`
 }
 
+func (tf Timeframe) StringStart() string {
+	format := "2006-01-02 15:04"
+	if tf.End.Local().YearDay() == tf.Start.Local().YearDay() {
+		format = "15:04"
+	}
+	return tf.Start.Local().Format(format)
+}
+
+func (tf Timeframe) StringEnd() string {
+	format := "2006-01-02 15:04"
+	if tf.End.Local().YearDay() == tf.Start.Local().YearDay() {
+		format = "15:04"
+	}
+	return tf.End.Local().Format(format)
+}
+
 func (tf Timeframe) Duration() time.Duration {
 	return tf.End.Sub(tf.Start)
 }

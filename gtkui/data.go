@@ -31,11 +31,12 @@ func (m *SessionListModel) FillFromDatabase() {
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("%#v", sessions)
+	log.Printf("%#v", m.Len())
 	m.Splice(0, m.Len(), sessions...)
 }
 
 func (m *SessionListModel) updateHook(op int, db string, table string, rowid int64) {
-	log.Println("updateHook", op, db, table, rowid)
 	if table != "sessions" && table != "time_frames" {
 		return
 	}

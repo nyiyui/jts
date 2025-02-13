@@ -147,6 +147,24 @@ func (d *Database) AddTimeframe(sessionID string, tf data.Timeframe) error {
 	return tx.Commit()
 }
 
+func (d *Database) EditTimeframe(sessionID, timeframeID string, tf data.Timeframe) error {
+	tx := d.DB.MustBegin()
+	_, err := tx.Exec("UPDATE time_frames SET start_time = ?, end_time = ? WHERE session_id = ? AND id = ?", tf.Start, tf.End, sessionID, timeframeID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (d *Database) DeleteTimeframe(sessionID, timeframeID string) error {
+	tx := d.DB.MustBegin()
+	_, err := tx.Exec("DELETE FROM time_frames WHERE session_id = ? AND id = ?", sessionID, timeframeID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (d *Database) ExtendSession(sessionID string, extendTo time.Time) error {
 	tx := d.DB.MustBegin()
 	_, err := tx.Exec("UPDATE time_frames SET end_time = ? WHERE session_id = ? AND end_time = (SELECT MAX(end_time) FROM time_frames WHERE session_id = ?)", extendTo, sessionID, sessionID)

@@ -2,6 +2,7 @@ package gtkui
 
 import (
 	_ "embed"
+	"time"
 
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 	"nyiyui.ca/jts/data"
@@ -36,6 +37,12 @@ func (nsw *NewSessionWindow) save() {
 	_, err := nsw.db.AddSession(data.Session{
 		Description: nsw.SessionDescription.Buffer().Text(),
 		Notes:       buf.Text(buf.StartIter(), buf.EndIter(), false),
+		Timeframes: []data.Timeframe{
+			{
+				Start: time.Now(),
+				End:   time.Now(),
+			},
+		},
 	})
 	if err != nil {
 		panic(err)

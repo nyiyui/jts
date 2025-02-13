@@ -3,9 +3,11 @@ package gtkui
 import (
 	_ "embed"
 	"fmt"
-	"log"
+	"time"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
+	"github.com/diamondburned/gotk4/pkg/core/gioutil"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 	"nyiyui.ca/jts/data"
 	"nyiyui.ca/jts/database"
@@ -22,6 +24,7 @@ type EditSessionWindow struct {
 	DeleteButton       *gtk.Button
 	SessionDescription *gtk.Entry
 	SessionNotes       *gtk.TextView
+	Timeframes         *gtk.ColumnView
 	db                 *database.Database
 }
 
@@ -45,6 +48,25 @@ func NewEditSessionWindow(db *database.Database, sessionID string) *EditSessionW
 		esw.SessionDescription.SetText(session.Description)
 		esw.SessionNotes.Buffer().SetText(session.Notes)
 	}
+	esw.Timeframes = builder.GetObject("Timeframes").Cast().(*gtk.ColumnView)
+	m := NewTimeframeListModel(esw.db, sessionID)
+	esw.Timeframes.SetModel(gtk.NewNoSelection(m))
+
+	factoryStart := NewTimeframeListItemFactory(func(tf data.Timeframe) string {
+		return tf.StringStart()
+	})
+	esw.Timeframes.AppendColumn(gtk.NewColumnViewColumn("開始", &factoryStart.ListItemFactory))
+	factoryEnd := NewTimeframeListItemFactory(func(tf data.Timeframe) string {
+		return tf.StringEnd()
+	})
+	esw.Timeframes.AppendColumn(gtk.NewColumnViewColumn("終了", &factoryEnd.ListItemFactory))
+	factoryDuration := NewTimeframeListItemFactory(func(tf data.Timeframe) string {
+		return tf.Duration().Round(1 * time.Second).String()
+	})
+	esw.Timeframes.AppendColumn(gtk.NewColumnViewColumn("時間", &factoryDuration.ListItemFactory))
+	factoryEdit := NewTimeframeEditListItemFactory(esw.Window, esw.db, sessionID)
+	esw.Timeframes.AppendColumn(gtk.NewColumnViewColumn("操作", &factoryEdit.ListItemFactory))
+
 	return esw
 }
 
@@ -58,7 +80,6 @@ func (esw *EditSessionWindow) save() {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Session %s updated", esw.SessionId.Label())
 	esw.Window.Close()
 }
 
@@ -78,4 +99,73 @@ func (esw *EditSessionWindow) delete_() {
 		esw.Window.Close()
 	})
 	ad.Present(esw.Window)
+}
+
+var TimeframeListModelType = gioutil.NewListModelType[data.Timeframe]()
+
+type TimeframeListModel struct {
+	*gioutil.ListModel[data.Timeframe]
+	db        *database.Database
+	sessionID string
+}
+
+func NewTimeframeListModel(db *database.Database, sessionID string) *TimeframeListModel {
+	m := &TimeframeListModel{TimeframeListModelType.New(), db, sessionID}
+	m.FillFromDatabase()
+	db.Notify(m.updateHook)
+	return m
+}
+
+func (m *TimeframeListModel) FillFromDatabase() {
+	session, err := m.db.GetSession(m.sessionID)
+	if err != nil {
+		panic(err)
+	}
+	m.Splice(0, m.Len(), session.Timeframes...)
+}
+
+func (m *TimeframeListModel) updateHook(op int, db string, table string, rowid int64) {
+	if table != "time_frames" {
+		return
+	}
+	m.FillFromDatabase()
+}
+
+func NewTimeframeListItemFactory(fn func(data.Timeframe) string) *gtk.SignalListItemFactory {
+	factory := gtk.NewSignalListItemFactory()
+	// we can't use builder factory as it doesn't support introspection of Go objects
+	factory.ConnectSetup(func(object *glib.Object) {
+		cell := object.Cast().(*gtk.ColumnViewCell)
+		label := gtk.NewLabel("")
+		cell.SetChild(label)
+	})
+	factory.ConnectBind(func(object *glib.Object) {
+		cell := object.Cast().(*gtk.ColumnViewCell)
+		label := cell.Child().(*gtk.Label)
+		timeframe := TimeframeListModelType.ObjectValue(cell.Item())
+		label.SetText(fn(timeframe))
+	})
+	// nothing to do for unbind and teardown
+	return factory
+}
+
+func NewTimeframeEditListItemFactory(window *gtk.Window, db *database.Database, sessionID string) *gtk.SignalListItemFactory {
+	factory := gtk.NewSignalListItemFactory()
+	// we can't use builder factory as it doesn't support introspection of Go objects
+	factory.ConnectSetup(func(object *glib.Object) {
+		cell := object.Cast().(*gtk.ColumnViewCell)
+		button := gtk.NewButton()
+		button.SetLabel("修正")
+		cell.SetChild(button)
+	})
+	factory.ConnectBind(func(object *glib.Object) {
+		cell := object.Cast().(*gtk.ColumnViewCell)
+		button := cell.Child().(*gtk.Button)
+		timeframe := TimeframeListModelType.ObjectValue(cell.Item())
+		button.ConnectClicked(func() {
+			PresentDialog(window, NewEditTimeframeWindow(db, sessionID, timeframe.ID).Window)
+		})
+	})
+	// nothing to do for unbind and teardown
+	return factory
 }
