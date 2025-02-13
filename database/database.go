@@ -53,12 +53,16 @@ func (c *connector) Driver() driver.Driver {
 	return c.driver
 }
 
-func NewDatabase() (*Database, error) {
-	path := configdir.LocalConfig("jts")
-	if err := configdir.MakePath(path); err != nil {
-		return nil, fmt.Errorf("failed to create config dir: %w", err)
+// NewDatabase creates (if necessary) and opens a database.
+// If dbPath is the empty string, a default database path is used.
+func NewDatabase(dbPath string) (*Database, error) {
+	if dbPath == "" {
+		path := configdir.LocalConfig("jts")
+		if err := configdir.MakePath(path); err != nil {
+			return nil, fmt.Errorf("failed to create config dir: %w", err)
+		}
+		dbPath = filepath.Join(path, "jts.db")
 	}
-	dbPath := filepath.Join(path, "jts.db")
 
 	db := new(Database)
 	c := newConnector(dbPath, db.updateHook)

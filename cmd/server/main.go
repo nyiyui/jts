@@ -28,8 +28,9 @@ func main() {
 	var dbPath string
 	var bindAddress string
 	var tokensPath string
+	// secrets and their related options are in environment variables, others are in flags
 	flag.StringVar(&bindAddress, "bind", "127.0.0.1:8080", "bind address")
-	flag.StringVar(&dbPath, "db-path", "db.sqlite3", "path to database")
+	flag.StringVar(&dbPath, "db-path", "", "path to database. if empty, a default path like ~/.config/jts/jts.db is used")
 	flag.StringVar(&tokensPath, "tokens-path", "", "path to tokens")
 	flag.Parse()
 
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	log.Printf("opening database...")
-	db, err := database.NewDatabase()
+	db, err := database.NewDatabase(dbPath)
 	if err != nil {
 		log.Fatalf("new db: %s", err)
 	}
