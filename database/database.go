@@ -84,7 +84,11 @@ func (d *Database) Migrate() error {
 
 func (d *Database) GetLatestSessions(limit, offset int) ([]data.Session, error) {
 	var sessions []data.Session
-	err := d.DB.Select(&sessions, "SELECT id, description, notes FROM sessions ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+	err := d.DB.Select(&sessions, `
+SELECT id, description, notes FROM sessions
+ORDER BY (SELECT MAX(end_time) FROM time_frames WHERE session_id = sessions.id)
+DESC LIMIT ? OFFSET ?
+`, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("get sessions: %w", err)
 	}

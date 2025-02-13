@@ -1,18 +1,12 @@
 package sync
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
-
-	"nyiyui.ca/jts/data"
 )
-
-type ExportedDatabase struct {
-	Sessions   []data.Session
-	Timeframes []data.Timeframe
-}
 
 type ServerClient struct {
 	client  *http.Client
@@ -38,7 +32,7 @@ func (sc *ServerClient) unlock(ctx context.Context) error {
 }
 
 func (sc *ServerClient) download(ctx context.Context) (*ExportedDatabase, error) {
-	url := sc.baseURL.JoinPath("/database.json")
+	url := sc.baseURL.JoinPath("/database")
 	req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
 	if err != nil {
 		return nil, err
@@ -60,8 +54,13 @@ func (sc *ServerClient) download(ctx context.Context) (*ExportedDatabase, error)
 }
 
 func (sc *ServerClient) upload(ctx context.Context, ed ExportedDatabase) error {
-	url := sc.baseURL.JoinPath("/database.json")
-	req, err := http.NewRequestWithContext(ctx, "PUT", url.String(), nil)
+	url := sc.baseURL.JoinPath("/database")
+	buf := new(bytes.Buffer)
+	err := json.NewEncoder(buf).Encode(ed)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, "PUT", url.String(), buf)
 	if err != nil {
 		return err
 	}

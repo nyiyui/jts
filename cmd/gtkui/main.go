@@ -41,6 +41,9 @@ func activate(app *gtk.Application, db *database.Database) {
 		nsw.Window.SetApplication(app)
 		nsw.Window.Show()
 	})
+	syncButton := builder.GetObject("SyncButton").Cast().(*gtk.Button)
+	syncButton.ConnectClicked(func() {
+	})
 	mergeButton := builder.GetObject("merge").Cast().(*gtk.Button)
 	mergeButton.ConnectClicked(func() {
 		nsw := gtkui.NewMergeWindow()

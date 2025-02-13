@@ -1,10 +1,62 @@
 package sync
 
 import (
+	"fmt"
 	"sort"
 
 	"nyiyui.ca/jts/data"
+	"nyiyui.ca/jts/database"
 )
+
+type ExportedDatabase struct {
+	Sessions   []data.Session
+	Timeframes []data.Timeframe
+}
+
+func Export(d *database.Database) (ExportedDatabase, error) {
+	var ed ExportedDatabase
+	err := d.DB.Select(&ed.Sessions, "SELECT id, description, notes FROM sessions")
+	if err != nil {
+		return ExportedDatabase{}, err
+	}
+	err = d.DB.Select(&ed.Timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames")
+	if err != nil {
+		return ExportedDatabase{}, err
+	}
+	return ed, nil
+}
+
+func Import(d *database.Database, ed ExportedDatabase) error {
+	panic("not implemented")
+}
+
+func ImportChanges(d *database.Database, c Changes) error {
+	var err error
+	tx := d.DB.MustBegin()
+	for i, ch := range c.Sessions {
+		switch ch.Operation {
+		case ChangeOperationExist:
+			_, err = tx.Exec("REPLACE INTO sessions (id, description, notes) VALUES (?, ?, ?)", ch.Data.ID, ch.Data.Description, ch.Data.Notes)
+		case ChangeOperationRemove:
+			_, err = tx.Exec("DELETE FROM sessions WHERE id = ?", ch.Data.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("change %d (%#v): %w", i, ch, err)
+		}
+	}
+	for i, ch := range c.Timeframes {
+		switch ch.Operation {
+		case ChangeOperationExist:
+			_, err = tx.Exec("REPLACE INTO time_frames (id, session_id, start_time, end_time) VALUES (?, ?, ?, ?)", ch.Data.ID, ch.Data.SessionID, ch.Data.Start, ch.Data.End)
+		case ChangeOperationRemove:
+			_, err = tx.Exec("DELETE FROM time_frames WHERE id = ?", ch.Data.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("change %d (%#v): %w", i, ch, err)
+		}
+	}
+	return nil
+}
 
 type MergeConflicts struct {
 	Sessions   []MergeConflict[data.Session]

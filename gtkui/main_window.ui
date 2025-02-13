@@ -10,8 +10,40 @@
           </object>
         </child>
         <child>
+          <object class="GtkButton" id="SyncButton">
+            <property name="label">サーバーと同期</property>
+          </object>
+        </child>
+        <child>
           <object class="GtkButton" id="merge">
             <property name="label">merge</property>
+          </object>
+        </child>
+        <child type="end">
+          <object class="GtkBox" id="SyncStatus">
+            <child>
+              <object class="AdwSpinner">
+                <property name="halign">center</property>
+                <property name="valign">center</property>
+                <!-- add padding to the right -->
+                <property name="margin-end">5sp</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">同期中</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="margin-start">5sp</property>
+                <child>
+                  <object class="GtkButton">
+                    <property name="label">上書き解消</property>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
         </child>
       </object>
