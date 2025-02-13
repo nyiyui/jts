@@ -41,6 +41,14 @@ func activate(app *gtk.Application, db *database.Database) {
 		nsw.Window.SetApplication(app)
 		nsw.Window.Show()
 	})
+	mergeButton := builder.GetObject("merge").Cast().(*gtk.Button)
+	mergeButton.ConnectClicked(func() {
+		nsw := gtkui.NewMergeWindow()
+		nsw.Window.SetTransientFor(&window.Window)
+		nsw.Window.SetDestroyWithParent(true) // TODO: dialog lives on (after MainWindow is closed) somehow
+		nsw.Window.SetApplication(app)
+		nsw.Window.Show()
+	})
 
 	currentListView := builder.GetObject("CurrentListView").Cast().(*gtk.ListView)
 	m := gtkui.NewSessionListModel(db)

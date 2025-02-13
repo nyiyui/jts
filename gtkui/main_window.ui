@@ -9,6 +9,11 @@
             <property name="label">セッションを作成</property>
           </object>
         </child>
+        <child>
+          <object class="GtkButton" id="merge">
+            <property name="label">merge</property>
+          </object>
+        </child>
       </object>
     </property>
     <property name="title">セッション一覧</property>

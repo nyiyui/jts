@@ -24,6 +24,7 @@
             sqlitebrowser
             gdb
             goose
+            sqlite
           ];
           nativeBuildInputs = with pkgs; [
             gtk4

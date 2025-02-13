@@ -52,7 +52,7 @@ func NewSessionListItemFactory(parent *gtk.Window, db *database.Database) *gtk.S
 		label.SetHExpand(true)
 		timeframes := gtk.NewLabel("")
 		actions := gtk.NewBox(gtk.OrientationHorizontal, 0)
-		extend := gtk.NewButtonWithLabel("最新は現在")
+		extend := gtk.NewButtonWithLabel("打刻延長")
 		edit := gtk.NewButtonWithLabel("修正")
 		actions.Append(extend)
 		actions.Append(edit)
