@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/gorilla/sessions"
+	"golang.org/x/oauth2"
 	"nyiyui.ca/jts/database"
 	"nyiyui.ca/jts/tokens"
 )
@@ -13,6 +15,21 @@ type Server struct {
 	lock   *serverLock
 	tokens map[tokens.TokenHash]TokenInfo
 	db     *database.Database
+}
+
+func New(oauthConfig *oauth2.Config, db *database.Database, tokens map[tokens.TokenHash]TokenInfo, store sessions.Store) (*Server, error) {
+	s := &Server{
+		mux:    http.NewServeMux(),
+		lock:   new(serverLock),
+		tokens: tokens,
+		db:     db,
+	}
+	s.setupHandlers()
+	return s, nil
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mux.ServeHTTP(w, r)
 }
 
 func (s *Server) setupHandlers() {
