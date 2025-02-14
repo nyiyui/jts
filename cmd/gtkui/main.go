@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	db, err := database.NewDatabase()
+	db, err := database.NewDatabase("")
 	if err != nil {
 		log.Fatalf("new db: %s", err)
 	}

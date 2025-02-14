@@ -15,6 +15,16 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        build =
+          pkgs:
+          (pkgs.buildGoModule rec {
+            pname = "jts-server";
+            version = if (self ? rev) then self.rev else "dirty";
+            src = ./.;
+            vendorHash = "sha256-DPUgJL/soq6LDDIyrESfrTJPEZCkeMCusY/i/24SjQ4=";
+            subPackages = [ "cmd/server" ];
+            ldflags = [ "-X nyiyui.ca/jts/server.vcsInfo=${version}" ];
+          });
       in
       rec {
         devShells.default = pkgs.mkShell {
@@ -33,6 +43,7 @@
             pkg-config
           ];
         };
+        packages.default = build pkgs;
       }
     );
 }
