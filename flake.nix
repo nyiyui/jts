@@ -21,7 +21,7 @@
             pname = "jts-server";
             version = if (self ? rev) then self.rev else "dirty";
             src = ./.;
-            vendorHash = "sha256-DPUgJL/soq6LDDIyrESfrTJPEZCkeMCusY/i/24SjQ4=";
+            vendorHash = "sha256-zpWWXVFL8rLBcyBrjX0hvTyQ4Hoo5XSQIHBjuykcvJo=";
             subPackages = [ "cmd/server" ];
             ldflags = [ "-X nyiyui.ca/jts/server.vcsInfo=${version}" ];
           });
