@@ -28,7 +28,7 @@ func NewSessionListModel(db *database.Database) *SessionListModel {
 }
 
 func (m *SessionListModel) FillFromDatabase() {
-	sessions, err := m.db.GetLatestSessions(10, 0)
+	sessions, err := m.db.GetLatestSessions(100, 0)
 	if err == sql.ErrNoRows {
 		m.Splice(0, m.Len())
 		return

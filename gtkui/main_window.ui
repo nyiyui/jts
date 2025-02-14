@@ -55,7 +55,11 @@
     <child>
       <object class="AdwToastOverlay" id="ToastOverlay">
         <child>
-          <object class="GtkListView" id="CurrentListView"/>
+          <object class="GtkScrolledWindow">
+            <child>
+              <object class="GtkListView" id="CurrentListView"/>
+            </child>
+          </object>
         </child>
       </object>
     </child>

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/safehtml/template"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"nyiyui.ca/jts/database"
@@ -11,18 +12,26 @@ import (
 )
 
 type Server struct {
-	mux    *http.ServeMux
-	lock   *serverLock
-	tokens map[tokens.TokenHash]TokenInfo
-	db     *database.Database
+	mux         *http.ServeMux
+	lock        *serverLock
+	tokens      map[tokens.TokenHash]TokenInfo
+	users       map[string]UserInfo
+	db          *database.Database
+	store       sessions.Store
+	oauthConfig *oauth2.Config
+	tps         map[string]*template.Template
 }
 
-func New(oauthConfig *oauth2.Config, db *database.Database, tokens map[tokens.TokenHash]TokenInfo, store sessions.Store) (*Server, error) {
+func New(oauthConfig *oauth2.Config, db *database.Database, tokens map[tokens.TokenHash]TokenInfo, users map[string]UserInfo, store sessions.Store) (*Server, error) {
 	s := &Server{
-		mux:    http.NewServeMux(),
-		lock:   new(serverLock),
-		tokens: tokens,
-		db:     db,
+		mux:         http.NewServeMux(),
+		lock:        new(serverLock),
+		tokens:      tokens,
+		users:       users,
+		db:          db,
+		store:       store,
+		oauthConfig: oauthConfig,
+		tps:         make(map[string]*template.Template),
 	}
 	s.setupHandlers()
 	return s, nil
@@ -38,6 +47,10 @@ func (s *Server) setupHandlers() {
 	s.mux.Handle("GET /database", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handleGetDatabase)))
 	s.mux.Handle("PUT /database", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handlePutDatabase)))
 	s.mux.Handle("POST /database/changes", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handlePostDatabaseChanges)))
+
+	s.mux.HandleFunc("GET /login", s.handleLogin)
+	s.mux.HandleFunc("GET /login/callback", s.handleLoginCallback)
+	s.mux.HandleFunc("GET /login/settings", s.handleLoginSettings)
 }
 
 type serverLock struct {
