@@ -59,7 +59,7 @@ func ImportChanges(d *database.Database, c Changes) error {
 			return fmt.Errorf("change %d (%#v): %w", i, ch, err)
 		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 type MergeConflicts struct {

@@ -1,6 +1,7 @@
 package gtkui
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -28,6 +29,10 @@ func NewSessionListModel(db *database.Database) *SessionListModel {
 
 func (m *SessionListModel) FillFromDatabase() {
 	sessions, err := m.db.GetLatestSessions(10, 0)
+	if err == sql.ErrNoRows {
+		m.Splice(0, m.Len())
+		return
+	}
 	if err != nil {
 		panic(err)
 	}
