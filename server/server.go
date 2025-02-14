@@ -34,6 +34,10 @@ func New(oauthConfig *oauth2.Config, db *database.Database, tokens map[tokens.To
 		tps:         make(map[string]*template.Template),
 	}
 	s.setupHandlers()
+	err := s.parseTemplates()
+	if err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 

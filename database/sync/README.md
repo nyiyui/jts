@@ -11,3 +11,5 @@ When syncing:
 4. resolve conflicts (potentially asking user)
 5. upload the new database to the server
 6. unlock the server's database
+7. reset the local database to the new database
+8. set a new original copy

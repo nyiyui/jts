@@ -191,12 +191,24 @@ func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDat
 	}
 
 	if status != nil {
-		status <- "サーバー更新"
+		status <- "更新"
 	}
-	log.Printf("changes: %#v", changes)
-	err = sc.uploadChanges(ctx, changes)
-	if err != nil {
-		return Changes{}, fmt.Errorf("upload changes: %w", err)
-	}
+	var wg2 sync.WaitGroup
+	wg2.Add(2)
+	go func() {
+		log.Printf("changes: %#v", changes)
+		err = sc.uploadChanges(ctx, changes)
+		if err != nil {
+			return Changes{}, fmt.Errorf("upload changes: %w", err)
+		}
+	}()
+	go func() {
+		// replace local database with server database
+		err = ReplaceAndImport(db, serverED, changes)
+		if err != nil {
+			return Changes{}, fmt.Errorf("replace: %w", err)
+		}
+	}()
+
 	return changes, nil
 }
