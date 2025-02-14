@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"log"
 	"sort"
 
 	"nyiyui.ca/jts/data"
@@ -34,6 +35,7 @@ func ImportChanges(d *database.Database, c Changes) error {
 	var err error
 	tx := d.DB.MustBegin()
 	for i, ch := range c.Sessions {
+		log.Printf("importing session change %d: %#v", i, ch)
 		switch ch.Operation {
 		case ChangeOperationExist:
 			_, err = tx.Exec("REPLACE INTO sessions (id, description, notes) VALUES (?, ?, ?)", ch.Data.ID, ch.Data.Description, ch.Data.Notes)
@@ -45,6 +47,7 @@ func ImportChanges(d *database.Database, c Changes) error {
 		}
 	}
 	for i, ch := range c.Timeframes {
+		log.Printf("importing timeframe change %d: %#v", i, ch)
 		switch ch.Operation {
 		case ChangeOperationExist:
 			_, err = tx.Exec("REPLACE INTO time_frames (id, session_id, start_time, end_time) VALUES (?, ?, ?, ?)", ch.Data.ID, ch.Data.SessionID, ch.Data.Start, ch.Data.End)
