@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <interface>
   <requires lib="gtk" version="4.6"/>
+  <requires lib="adwaita" version="1.6"/>
   <object class="GtkApplicationWindow" id="MainWindow">
     <property name="titlebar">
       <object class="GtkHeaderBar">
@@ -21,6 +22,7 @@
         </child>
         <child type="end">
           <object class="GtkBox" id="SyncStatus">
+            <property name="visible">false</property>
             <child>
               <object class="AdwSpinner">
                 <property name="halign">center</property>
@@ -30,7 +32,7 @@
               </object>
             </child>
             <child>
-              <object class="GtkLabel">
+              <object class="GtkLabel" id="SyncStatusLabel">
                 <property name="label">同期中</property>
               </object>
             </child>
@@ -50,7 +52,11 @@
     </property>
     <property name="title">セッション一覧</property>
     <child>
-      <object class="GtkListView" id="CurrentListView"/>
+      <object class="AdwToastOverlay" id="ToastOverlay">
+        <child>
+          <object class="GtkListView" id="CurrentListView"/>
+        </child>
+      </object>
     </child>
   </object>
 </interface>

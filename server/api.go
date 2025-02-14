@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"slices"
 
@@ -105,6 +106,7 @@ func (s *Server) handlePostDatabaseChanges(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "failed to decode database changes", 400)
 		return
 	}
+	log.Printf("importing changes: sessions=%d, timeframes=%d", len(changes.Sessions), len(changes.Timeframes))
 	err = sync.ImportChanges(s.db, changes)
 	if err != nil {
 		http.Error(w, "failed to import database changes", 500)
