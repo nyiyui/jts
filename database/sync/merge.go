@@ -33,6 +33,7 @@ func Import(d *database.Database, ed ExportedDatabase) error {
 
 func ImportChanges(d *database.Database, c Changes) error {
 	var err error
+	log.Println("importing changes %#v", c)
 	tx := d.DB.MustBegin()
 	for i, ch := range c.Sessions {
 		log.Printf("importing session change %d: %#v", i, ch)
