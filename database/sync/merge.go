@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 
 	"nyiyui.ca/jts/data"
@@ -116,7 +117,10 @@ func mergeSlice[T any](merge func(original, local, remote T) ([]Change[T], []Mer
 	var i int
 	for j := 0; i < len(local) && j < len(remote); {
 		if getID(local[i]) == getID(remote[j]) {
-			chs, cfs := merge(original[i], local[i], remote[j])
+			originalIndex := slices.IndexFunc(original, func(s T) bool {
+				return getID(s) == getID(local[i])
+			})
+			chs, cfs := merge(original[originalIndex], local[i], remote[j])
 			changes = append(changes, chs...)
 			conflicts = append(conflicts, cfs...)
 			i++
