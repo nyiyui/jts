@@ -96,5 +96,6 @@ func (s *Server) handlePostDatabaseChanges(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "failed to import database changes", 500)
 		return
 	}
+	log.Println("changes imported")
 	w.WriteHeader(200)
 }
