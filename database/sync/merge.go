@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/jmoiron/sqlx"
 	"nyiyui.ca/jts/data"
 	"nyiyui.ca/jts/database"
 )
@@ -28,14 +29,57 @@ func Export(d *database.Database) (ExportedDatabase, error) {
 	return ed, nil
 }
 
-func Import(d *database.Database, ed ExportedDatabase) error {
-	panic("not implemented")
+// ReplaceAndImport replaces the database with the exported database and then imports the changes.
+func ReplaceAndImport(d *database.Database, ed ExportedDatabase, c Changes) error {
+	tx := d.DB.MustBegin()
+	if err := replace(tx, ed); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := importChanges(tx, c); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func replace(tx *sqlx.Tx, ed ExportedDatabase) error {
+	_, err := tx.Exec("DELETE FROM sessions")
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("DELETE FROM time_frames")
+	if err != nil {
+		return err
+	}
+
+	for _, s := range ed.Sessions {
+		_, err = tx.Exec("INSERT INTO sessions (id, description, notes) VALUES (?, ?, ?)", s.ID, s.Description, s.Notes)
+		if err != nil {
+			return err
+		}
+	}
+	for _, tf := range ed.Timeframes {
+		_, err = tx.Exec("INSERT INTO time_frames (id, session_id, start_time, end_time) VALUES (?, ?, ?, ?)", tf.ID, tf.SessionID, tf.Start, tf.End)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ImportChanges(d *database.Database, c Changes) error {
-	var err error
 	log.Printf("importing changes %#v", c)
 	tx := d.DB.MustBegin()
+	if err := importChanges(tx, c); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func importChanges(tx *sqlx.Tx, c Changes) error {
+	var err error
 	for i, ch := range c.Sessions {
 		log.Printf("importing session change %d: %#v", i, ch)
 		switch ch.Operation {
@@ -60,7 +104,7 @@ func ImportChanges(d *database.Database, c Changes) error {
 			return fmt.Errorf("change %d (%#v): %w", i, ch, err)
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 type MergeConflicts struct {
@@ -89,6 +133,17 @@ const (
 	ChangeOperationRemove
 )
 
+func (co ChangeOperation) String() string {
+	switch co {
+	case ChangeOperationExist:
+		return "exist"
+	case ChangeOperationRemove:
+		return "remove"
+	default:
+		return fmt.Sprintf("unknown(%d)", int(co))
+	}
+}
+
 func Merge(original, local, remote ExportedDatabase) (Changes, MergeConflicts) {
 	// sessions
 	changesS, conflictsS := mergeSlice(mergeSession, getIDSession, original.Sessions, local.Sessions, remote.Sessions)
@@ -114,9 +169,12 @@ func mergeSlice[T any](merge func(original, local, remote T) ([]Change[T], []Mer
 	sort.Slice(remote, func(i, j int) bool {
 		return getID(remote[i]) < getID(remote[j])
 	})
+	log.Printf("remote length %d", len(remote))
 	var i int
 	for j := 0; i < len(local) && j < len(remote); {
+		log.Printf("comparing local=%s remote=%s", getID(local[i]), getID(remote[j]))
 		if getID(local[i]) == getID(remote[j]) {
+			log.Printf("merge %s", getID(local[i]))
 			originalIndex := slices.IndexFunc(original, func(s T) bool {
 				return getID(s) == getID(local[i])
 			})
@@ -127,6 +185,7 @@ func mergeSlice[T any](merge func(original, local, remote T) ([]Change[T], []Mer
 			j++
 		} else if getID(local[i]) < getID(remote[j]) {
 			// remote is missing local[i]
+			log.Printf("remote is missing local=%s", getID(local[i]))
 			changes = append(changes, Change[T]{
 				ChangeOperationExist,
 				local[i],
@@ -134,20 +193,17 @@ func mergeSlice[T any](merge func(original, local, remote T) ([]Change[T], []Mer
 			i++
 		} else {
 			// local is missing remote[j]
-			changes = append(changes, Change[T]{
-				ChangeOperationRemove,
-				remote[j],
-			})
+			// no changes needed to remote
+			log.Printf("local is missing remote=%s", getID(remote[j]))
 			j++
 		}
 	}
-	if i < len(local) {
-		for ; i < len(local); i++ {
-			changes = append(changes, Change[T]{
-				ChangeOperationExist,
-				local[i],
-			})
-		}
+	for ; i < len(local); i++ {
+		log.Printf("() remote is missing local=%s", getID(local[i]))
+		changes = append(changes, Change[T]{
+			ChangeOperationExist,
+			local[i],
+		})
 	}
 	return changes, conflicts
 }
@@ -165,6 +221,7 @@ func merge[T any](equal func(a, b T) bool, original, local, remote T) ([]Change[
 			{ChangeOperationExist, local},
 		}, nil
 	}
+	log.Printf("merge conflict: original=%#v, local=%#v, remote=%#v", original, local, remote)
 	return nil, []MergeConflict[T]{
 		{original, local, remote},
 	}

@@ -3,10 +3,13 @@ package gtkui
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
@@ -30,13 +33,15 @@ type MainWindow struct {
 	currentListView       *gtk.ListView
 	token                 tokens.Token
 	db                    *database.Database
+	originalEDPath        string
 }
 
-func NewMainWindow(db *database.Database, token tokens.Token) *MainWindow {
+func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath string) *MainWindow {
 	mw := new(MainWindow)
 	builder := gtk.NewBuilderFromString(MainWindowXML)
 	mw.db = db
 	mw.token = token
+	mw.originalEDPath = originalEDPath
 
 	mw.Window = builder.GetObject("MainWindow").Cast().(*gtk.ApplicationWindow)
 	mw.newSessionButton = builder.GetObject("NewSessionButton").Cast().(*gtk.Button)
@@ -74,6 +79,36 @@ func NewMainWindow(db *database.Database, token tokens.Token) *MainWindow {
 	return mw
 }
 
+func (mw *MainWindow) resolveConflicts(mc sync.MergeConflicts) (sync.Changes, error) {
+	for i, c := range mc.Sessions {
+		log.Printf("conflict %d: session: %s", i, c)
+	}
+	for i, c := range mc.Timeframes {
+		log.Printf("conflict %d: timeframe: %s", i, c)
+	}
+	return sync.Changes{}, errors.New("not implemented")
+}
+
+func (mw *MainWindow) readOriginalED() (sync.ExportedDatabase, error) {
+	file, err := os.Open(mw.originalEDPath)
+	if err != nil {
+		return sync.ExportedDatabase{}, err
+	}
+	defer file.Close()
+	var ed sync.ExportedDatabase
+	err = json.NewDecoder(file).Decode(&ed)
+	return ed, err
+}
+
+func (mw *MainWindow) updateOriginalED(ed sync.ExportedDatabase) error {
+	file, err := os.Create(mw.originalEDPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewEncoder(file).Encode(ed)
+}
+
 func (mw *MainWindow) sync() {
 	mw.syncStatus.SetVisible(true)
 	go func() {
@@ -90,13 +125,20 @@ func (mw *MainWindow) sync() {
 				mw.syncStatusLabel.SetLabel(s)
 			}
 		}()
-		changes, err := sc.SyncDatabase(context.Background(), sync.ExportedDatabase{}, mw.db, status)
+		original, err := mw.readOriginalED()
+		if err != nil {
+			log.Printf("read original ed: %s", err)
+		}
+		changes, newED, err := sc.SyncDatabase(context.Background(), original, mw.db, mw.resolveConflicts, status)
 		if err != nil {
 			log.Println("sync: ", err)
 			toast := adw.NewToast(fmt.Sprintf("同期に失敗しました。 %s", err))
 			toast.SetPriority(adw.ToastPriorityHigh)
 			mw.toastOverlay.AddToast(toast)
 			return
+		}
+		if err = mw.updateOriginalED(newED); err != nil {
+			log.Printf("update original ed: %s", err)
 		}
 		log.Printf("done: sessions=%d, timeframes=%d", len(changes.Sessions), len(changes.Timeframes))
 		toast := adw.NewToast(fmt.Sprintf("同期しました。 セッション: %d, 打刻: %d", len(changes.Sessions), len(changes.Timeframes)))

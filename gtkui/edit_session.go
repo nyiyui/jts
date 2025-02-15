@@ -1,6 +1,7 @@
 package gtkui
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/diamondburned/gotk4/pkg/core/gioutil"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	"golang.org/x/sync/semaphore"
 	"nyiyui.ca/jts/data"
 	"nyiyui.ca/jts/database"
 )
@@ -107,10 +109,11 @@ type TimeframeListModel struct {
 	*gioutil.ListModel[data.Timeframe]
 	db        *database.Database
 	sessionID string
+	sema      *semaphore.Weighted
 }
 
 func NewTimeframeListModel(db *database.Database, sessionID string) *TimeframeListModel {
-	m := &TimeframeListModel{TimeframeListModelType.New(), db, sessionID}
+	m := &TimeframeListModel{TimeframeListModelType.New(), db, sessionID, semaphore.NewWeighted(1)}
 	m.FillFromDatabase()
 	db.Notify(m.updateHook)
 	return m
@@ -121,7 +124,16 @@ func (m *TimeframeListModel) FillFromDatabase() {
 	if err != nil {
 		panic(err)
 	}
-	m.Splice(0, m.Len(), session.Timeframes...)
+	err = m.sema.Acquire(context.Background(), 1)
+	if err != nil {
+		// this probably means we are calling FillFromDatabase too fast
+		// there is no backpressure, so we should not add more to the metaphorical backlog
+		return
+	}
+	glib.IdleAdd(func() {
+		defer m.sema.Release(1)
+		m.Splice(0, m.Len(), session.Timeframes...)
+	})
 }
 
 func (m *TimeframeListModel) updateHook(op int, db string, table string, rowid int64) {

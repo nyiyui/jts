@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -35,9 +36,13 @@ func (sc *ServerClient) lock(ctx context.Context) error {
 		panic(err)
 	}
 	req.Header.Set("X-API-Token", sc.token.String())
-	_, err = sc.client.Do(req)
+	resp, err := sc.client.Do(req)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to upload changes (status code %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
@@ -49,9 +54,13 @@ func (sc *ServerClient) unlock(ctx context.Context) error {
 		panic(err)
 	}
 	req.Header.Set("X-API-Token", sc.token.String())
-	_, err = sc.client.Do(req)
+	resp, err := sc.client.Do(req)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to upload changes (status code %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
@@ -63,17 +72,14 @@ func (sc *ServerClient) download(ctx context.Context) (ExportedDatabase, error) 
 		panic(err)
 	}
 	req.Header.Set("X-API-Token", sc.token.String())
-	_, err = sc.client.Do(req)
-	if err != nil {
-		return ExportedDatabase{}, err
-	}
 	resp, err := sc.client.Do(req)
 	if err != nil {
 		return ExportedDatabase{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return ExportedDatabase{}, nil
+		body, _ := io.ReadAll(resp.Body)
+		return ExportedDatabase{}, fmt.Errorf("failed to download database (status code %d): %s", resp.StatusCode, string(body))
 	}
 	var exported ExportedDatabase
 	err = json.NewDecoder(resp.Body).Decode(&exported)
@@ -83,33 +89,6 @@ func (sc *ServerClient) download(ctx context.Context) (ExportedDatabase, error) 
 	return exported, nil
 }
 
-func (sc *ServerClient) upload(ctx context.Context, ed ExportedDatabase) error {
-	url := sc.baseURL.JoinPath("/database")
-	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(ed)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, "PUT", url.String(), nil)
-	if err != nil {
-		panic(err)
-	}
-	req.Header.Set("X-API-Token", sc.token.String())
-	_, err = sc.client.Do(req)
-	if err != nil {
-		return err
-	}
-	resp, err := sc.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil
-	}
-	return nil
-}
-
 func (sc *ServerClient) uploadChanges(ctx context.Context, changes Changes) error {
 	url := sc.baseURL.JoinPath("/database/changes")
 	buf := new(bytes.Buffer)
@@ -117,33 +96,35 @@ func (sc *ServerClient) uploadChanges(ctx context.Context, changes Changes) erro
 	if err != nil {
 		return err
 	}
+	log.Printf("url = %v", url)
 	req, err := http.NewRequestWithContext(ctx, "POST", url.String(), buf)
 	if err != nil {
 		panic(err)
 	}
-	req.Header.Set("X-API-Token", sc.token.String())
-	_, err = sc.client.Do(req)
-	if err != nil {
-		return err
+	if sc.token.Empty() {
+		panic("token is empty")
 	}
+	req.Header.Set("X-API-Token", sc.token.String())
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := sc.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to upload changes (status code %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
 
-func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDatabase, db *database.Database, status chan<- string) (Changes, error) {
+func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDatabase, db *database.Database, resolver func(MergeConflicts) (Changes, error), status chan<- string) (Changes, ExportedDatabase, error) {
 	if status != nil {
 		status <- "施錠"
 	}
 	err := sc.lock(ctx)
 	if err != nil {
-		return Changes{}, err
+		return Changes{}, ExportedDatabase{}, fmt.Errorf("lock: %w", err)
 	}
 	defer func() {
 		if status != nil {
@@ -173,10 +154,10 @@ func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDat
 	}()
 	wg.Wait()
 	if err1 != nil {
-		return Changes{}, fmt.Errorf("download: %w", err1)
+		return Changes{}, ExportedDatabase{}, fmt.Errorf("download: %w", err1)
 	}
 	if err2 != nil {
-		return Changes{}, fmt.Errorf("local export: %w", err2)
+		return Changes{}, ExportedDatabase{}, fmt.Errorf("local export: %w", err2)
 	}
 	if status != nil {
 		status <- "マージ"
@@ -185,33 +166,55 @@ func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDat
 	if len(originalED.Sessions) == 0 && len(originalED.Timeframes) == 0 {
 		originalED = serverED
 	}
+	log.Printf("serverED has %d sessions and %d timeframes", len(serverED.Sessions), len(serverED.Timeframes))
 	changes, conflicts := Merge(originalED, localED, serverED)
+	log.Printf("num of conflicts: %d", len(conflicts.Sessions)+len(conflicts.Timeframes))
 	if len(conflicts.Sessions) > 0 || len(conflicts.Timeframes) > 0 {
-		return Changes{}, fmt.Errorf("conflicts: %v", conflicts)
+		if resolver == nil {
+			return Changes{}, ExportedDatabase{}, fmt.Errorf("conflicts detected, but no resolver provided")
+		} else {
+			changes2, err := resolver(conflicts)
+			if err != nil {
+				return Changes{}, ExportedDatabase{}, fmt.Errorf("resolve conflicts: %w", err)
+			}
+			changes.Sessions = append(changes.Sessions, changes2.Sessions...)
+			changes.Timeframes = append(changes.Timeframes, changes2.Timeframes...)
+		}
+	}
+
+	for i, s := range changes.Sessions {
+		log.Printf("change %d: session: %s", i, s)
+	}
+	for i, t := range changes.Timeframes {
+		log.Printf("change %d: timeframe: %s", i, t)
 	}
 
 	if status != nil {
 		status <- "更新"
 	}
-	log.Printf("changes: %#v", changes)
-	err = sc.uploadChanges(ctx, changes)
-	if err != nil {
-		return Changes{}, fmt.Errorf("upload changes: %w", err)
-	}
 	var wg2 sync.WaitGroup
 	wg2.Add(2)
 	go func() {
 		defer wg2.Done()
+		err1 = sc.uploadChanges(ctx, changes)
 	}()
 	go func() {
 		defer wg2.Done()
 		// replace local database with server database
-		// TODO
-		//err = ReplaceAndImport(db, serverED, changes)
-		//if err != nil {
-		//	return Changes{}, fmt.Errorf("replace: %w", err)
-		//}
+		err2 = ReplaceAndImport(db, serverED, changes)
 	}()
+	wg2.Wait()
+	if err1 != nil {
+		return Changes{}, ExportedDatabase{}, fmt.Errorf("upload changes: %w", err1)
+	}
+	if err2 != nil {
+		return Changes{}, ExportedDatabase{}, fmt.Errorf("local replace and import: %w", err2)
+	}
 
-	return changes, nil
+	newED, err := Export(db)
+	if err != nil {
+		panic(err)
+	}
+
+	return changes, newED, nil
 }

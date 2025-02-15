@@ -1,14 +1,15 @@
 package gtkui
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/diamondburned/gotk4/pkg/core/gioutil"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	"golang.org/x/sync/semaphore"
 	"nyiyui.ca/jts/data"
 	"nyiyui.ca/jts/database"
 )
@@ -17,28 +18,39 @@ var SessionListModelType = gioutil.NewListModelType[data.Session]()
 
 type SessionListModel struct {
 	*gioutil.ListModel[data.Session]
-	db *database.Database
+	db   *database.Database
+	sema *semaphore.Weighted
 }
 
 func NewSessionListModel(db *database.Database) *SessionListModel {
-	m := &SessionListModel{SessionListModelType.New(), db}
+	m := &SessionListModel{SessionListModelType.New(), db, semaphore.NewWeighted(1)}
 	m.FillFromDatabase()
 	db.Notify(m.updateHook)
 	return m
 }
 
 func (m *SessionListModel) FillFromDatabase() {
-	sessions, err := m.db.GetLatestSessions(100, 0)
-	if err == sql.ErrNoRows {
-		m.Splice(0, m.Len())
+	err := m.sema.Acquire(context.Background(), 1)
+	if err != nil {
+		// this probably means we are calling FillFromDatabase too fast
+		// there is no backpressure, so we should not add more to the metaphorical backlog
 		return
 	}
-	if err != nil {
+	sessions, err := m.db.GetLatestSessions(100, 0)
+	if err != nil && err != sql.ErrNoRows {
 		panic(err)
 	}
-	log.Printf("%#v", sessions)
-	log.Printf("%#v", m.Len())
-	m.Splice(0, m.Len(), sessions...)
+	if err == sql.ErrNoRows {
+		glib.IdleAdd(func() {
+			defer m.sema.Release(1)
+			m.Splice(0, m.Len())
+		})
+	} else {
+		glib.IdleAdd(func() {
+			defer m.sema.Release(1)
+			m.Splice(0, m.Len(), sessions...)
+		})
+	}
 }
 
 func (m *SessionListModel) updateHook(op int, db string, table string, rowid int64) {

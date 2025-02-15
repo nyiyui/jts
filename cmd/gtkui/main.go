@@ -3,22 +3,32 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 
 	_ "embed"
 
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	"github.com/kirsle/configdir"
 	"nyiyui.ca/jts/database"
 	"nyiyui.ca/jts/gtkui"
 	"nyiyui.ca/jts/tokens"
 )
 
 func main() {
+	path := configdir.LocalConfig("jts")
+	if err := configdir.MakePath(path); err != nil {
+		log.Fatalf("create config dir: %s", err)
+	}
+
 	var token tokens.Token
 	var err error
-	rawToken := os.Getenv("JTS_SERVER_TOKEN")
-	if rawToken != "" {
-		token, err = tokens.ParseToken(rawToken)
+	rawToken, err := os.ReadFile(filepath.Join(path, "server-token"))
+	if err != nil && !os.IsNotExist(err) {
+		log.Fatalf("read token: %s", err)
+	}
+	if err == nil {
+		token, err = tokens.ParseToken(string(rawToken))
 		if err != nil {
 			log.Fatalf("parse token: %s", err)
 		}
@@ -34,7 +44,7 @@ func main() {
 
 	app := gtk.NewApplication("ca.nyiyui.jts", gio.ApplicationFlagsNone)
 	app.ConnectActivate(func() {
-		mw := gtkui.NewMainWindow(db, token)
+		mw := gtkui.NewMainWindow(db, token, filepath.Join(path, "original.json"))
 		mw.Window.SetApplication(app)
 		mw.Window.Show()
 	})

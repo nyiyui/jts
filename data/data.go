@@ -8,10 +8,10 @@ import (
 // Session represents one (possible non-continuous) session of some activity.
 // Example: one gaming session, playing Mario Kart
 type Session struct {
-	ID          string `db:"id"`
-	Description string `db:"description"`
-	Notes       string `db:"notes"`
-	Timeframes  []Timeframe
+	ID          string      `db:"id"`
+	Description string      `db:"description"`
+	Notes       string      `db:"notes"`
+	Timeframes  []Timeframe `json:"timeframes,omitempty"`
 }
 
 func (s Session) EqualProperties(other Session) bool {

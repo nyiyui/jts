@@ -83,22 +83,6 @@ func (s *Server) handleGetDatabase(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (s *Server) handlePutDatabase(w http.ResponseWriter, r *http.Request) {
-	var ed sync.ExportedDatabase
-	err := json.NewDecoder(r.Body).Decode(&ed)
-	if err != nil {
-		http.Error(w, "failed to decode database export", 400)
-		return
-	}
-	err = sync.Import(s.db, ed)
-	if err != nil {
-		http.Error(w, "failed to import database export", 500)
-		return
-	}
-	w.WriteHeader(200)
-	return
-}
-
 func (s *Server) handlePostDatabaseChanges(w http.ResponseWriter, r *http.Request) {
 	var changes sync.Changes
 	err := json.NewDecoder(r.Body).Decode(&changes)

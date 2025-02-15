@@ -6,7 +6,6 @@ import (
 	"database/sql/driver"
 	"embed"
 	"fmt"
-	"log"
 	"path/filepath"
 	"time"
 
@@ -210,7 +209,6 @@ func (d *Database) Notify(fn UpdateHookFn) {
 }
 
 func (d *Database) updateHook(op int, name, table string, rowid int64) {
-	log.Println("updateHook", op, name, table, rowid)
 	for _, fn := range d.notifyFns {
 		go fn(op, name, table, rowid)
 	}

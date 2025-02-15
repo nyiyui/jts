@@ -49,7 +49,6 @@ func (s *Server) setupHandlers() {
 	s.mux.Handle("POST /lock", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handleLock)))
 	s.mux.Handle("POST /unlock", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handleUnlock)))
 	s.mux.Handle("GET /database", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handleGetDatabase)))
-	s.mux.Handle("PUT /database", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handlePutDatabase)))
 	s.mux.Handle("POST /database/changes", s.apiAuthz(PermissionSyncDatabase)(http.HandlerFunc(s.handlePostDatabaseChanges)))
 
 	s.mux.HandleFunc("GET /login", s.handleLogin)
