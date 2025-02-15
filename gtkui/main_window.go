@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,7 +12,9 @@ import (
 	"time"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	"golang.org/x/sync/semaphore"
 	"nyiyui.ca/jts/database"
 	"nyiyui.ca/jts/database/sync"
 	"nyiyui.ca/jts/tokens"
@@ -23,6 +24,11 @@ import (
 var MainWindowXML string
 
 type MainWindow struct {
+	token          tokens.Token
+	db             *database.Database
+	originalEDPath string
+	syncSemaphore  *semaphore.Weighted
+
 	Window                *gtk.ApplicationWindow
 	newSessionButton      *gtk.Button
 	toastOverlay          *adw.ToastOverlay
@@ -31,9 +37,6 @@ type MainWindow struct {
 	syncStatusLabel       *gtk.Label
 	syncConflictButtonBox *gtk.Box
 	currentListView       *gtk.ListView
-	token                 tokens.Token
-	db                    *database.Database
-	originalEDPath        string
 }
 
 func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath string) *MainWindow {
@@ -42,6 +45,7 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 	mw.db = db
 	mw.token = token
 	mw.originalEDPath = originalEDPath
+	mw.syncSemaphore = semaphore.NewWeighted(1)
 
 	mw.Window = builder.GetObject("MainWindow").Cast().(*gtk.ApplicationWindow)
 	mw.newSessionButton = builder.GetObject("NewSessionButton").Cast().(*gtk.Button)
@@ -59,14 +63,6 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 		nsw.Window.Show()
 	})
 	mw.syncButton.ConnectClicked(mw.sync)
-	mergeButton := builder.GetObject("merge").Cast().(*gtk.Button)
-	mergeButton.ConnectClicked(func() {
-		nsw := NewMergeWindow()
-		nsw.Window.SetTransientFor(&mw.Window.Window)
-		nsw.Window.SetDestroyWithParent(true) // TODO: dialog lives on (after MainWindow is closed) somehow
-		nsw.Window.SetApplication(mw.Window.Application())
-		nsw.Window.Show()
-	})
 
 	mw.currentListView = builder.GetObject("CurrentListView").Cast().(*gtk.ListView)
 	m := NewSessionListModel(db)
@@ -86,7 +82,21 @@ func (mw *MainWindow) resolveConflicts(mc sync.MergeConflicts) (sync.Changes, er
 	for i, c := range mc.Timeframes {
 		log.Printf("conflict %d: timeframe: %s", i, c)
 	}
-	return sync.Changes{}, errors.New("not implemented")
+	changes := make(chan sync.Changes)
+	errs := make(chan error)
+	glib.IdleAdd(func() {
+		mw2 := NewMergeWindow(mc, changes, errs)
+		mw2.Window.SetTransientFor(&mw.Window.Window)
+		mw2.Window.SetDestroyWithParent(true) // TODO: dialog lives on (after MainWindow is closed) somehow
+		mw2.Window.SetApplication(mw.Window.Application())
+		mw2.Window.Show()
+	})
+	select {
+	case c := <-changes:
+		return c, nil
+	case err := <-errs:
+		return sync.Changes{}, err
+	}
 }
 
 func (mw *MainWindow) readOriginalED() (sync.ExportedDatabase, error) {
@@ -110,9 +120,20 @@ func (mw *MainWindow) updateOriginalED(ed sync.ExportedDatabase) error {
 }
 
 func (mw *MainWindow) sync() {
+	err := mw.syncSemaphore.Acquire(context.Background(), 1)
+	if err != nil {
+		// do not allow multiple syncs to happen at the same time
+		// as that is pretty much useless
+		return
+	}
+	defer mw.syncSemaphore.Release(1)
+	mw.syncButton.SetSensitive(false)
 	mw.syncStatus.SetVisible(true)
 	go func() {
-		defer mw.syncStatus.SetVisible(false)
+		defer func() {
+			mw.syncButton.SetSensitive(true)
+			mw.syncStatus.SetVisible(false)
+		}()
 		baseURL, err := url.Parse("https://jts.kiyuri.ca")
 		if err != nil {
 			panic(err)
