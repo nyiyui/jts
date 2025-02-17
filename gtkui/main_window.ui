@@ -15,11 +15,6 @@
             <property name="label">サーバーと同期</property>
           </object>
         </child>
-        <child>
-          <object class="GtkButton" id="merge">
-            <property name="label">merge</property>
-          </object>
-        </child>
         <child type="end">
           <object class="GtkBox" id="SyncStatus">
             <property name="visible">false</property>

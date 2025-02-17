@@ -25,6 +25,16 @@
             vendorHash = "sha256-ZS5KYdFQgeIW8FdT0GXNcQAYVEdhkSD7CGmVcQI36c4=";
             subPackages = [ package ];
             ldflags = [ "-X nyiyui.ca/jts/server.vcsInfo=${version}" ];
+            buildInputs = with pkgs; [
+              gtk4
+              libadwaita
+              gobject-introspection
+              cairo
+              gdk-pixbuf
+            ];
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+            ];
           });
       in
       rec {

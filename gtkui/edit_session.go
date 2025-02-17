@@ -2,7 +2,9 @@ package gtkui
 
 import (
 	"context"
+	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"time"
 
@@ -121,7 +123,7 @@ func NewTimeframeListModel(db *database.Database, sessionID string) *TimeframeLi
 
 func (m *TimeframeListModel) FillFromDatabase() {
 	session, err := m.db.GetSession(m.sessionID)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		panic(err)
 	}
 	err = m.sema.Acquire(context.Background(), 1)
