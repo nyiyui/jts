@@ -17,29 +17,29 @@
         </child>
         <child type="end">
           <object class="GtkBox" id="SyncStatus">
-            <property name="visible">false</property>
             <child>
-              <object class="AdwSpinner">
-                <property name="halign">center</property>
-                <property name="valign">center</property>
-                <!-- add padding to the right -->
+              <object class="GtkBox" id="SyncConflictButtonBox">
+                <property name="visible">false</property>
                 <property name="margin-end">5sp</property>
+                <child>
+                  <object class="GtkButton">
+                    <property name="label">上書き解消</property>
+                  </object>
+                </child>
               </object>
             </child>
+            <property name="visible">false</property>
             <child>
               <object class="GtkLabel" id="SyncStatusLabel">
                 <property name="label">同期中</property>
               </object>
             </child>
             <child>
-              <object class="GtkBox" id="SyncConflictButtonBox">
-                <property name="visible">false</property>
+              <object class="AdwSpinner">
+                <property name="halign">center</property>
+                <property name="valign">center</property>
+                <!-- add padding between label -->
                 <property name="margin-start">5sp</property>
-                <child>
-                  <object class="GtkButton">
-                    <property name="label">上書き解消</property>
-                  </object>
-                </child>
               </object>
             </child>
           </object>
