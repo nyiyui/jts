@@ -25,7 +25,7 @@ type SessionListModel struct {
 func NewSessionListModel(db *database.Database) *SessionListModel {
 	m := &SessionListModel{SessionListModelType.New(), db, semaphore.NewWeighted(1)}
 	m.FillFromDatabase()
-	db.Notify(m.updateHook)
+	db.Notify(m.updateHook) // TODO: leak?
 	return m
 }
 
@@ -60,7 +60,7 @@ func (m *SessionListModel) updateHook(op int, db string, table string, rowid int
 	m.FillFromDatabase()
 }
 
-func NewSessionListItemFactory(parent *gtk.Window, db *database.Database) *gtk.SignalListItemFactory {
+func NewSessionListItemFactory(parent *gtk.Window, db *database.Database, changed chan<- struct{}) *gtk.SignalListItemFactory {
 	factory := gtk.NewSignalListItemFactory()
 	// we can't use builder factory as it doesn't support introspection of Go objects
 	factory.ConnectSetup(func(object *glib.Object) {
@@ -98,6 +98,9 @@ func NewSessionListItemFactory(parent *gtk.Window, db *database.Database) *gtk.S
 			err := db.ExtendSession(session.ID, time.Now())
 			if err != nil {
 				panic(err)
+			}
+			if changed != nil {
+				changed <- struct{}{}
 			}
 		})
 		edit := extend.NextSibling().(*gtk.Button)

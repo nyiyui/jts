@@ -15,6 +15,22 @@ import (
 	"nyiyui.ca/jts/tokens"
 )
 
+var (
+	ErrConflictNoResolver = fmt.Errorf("conflicts detected, but no resolver provided")
+)
+
+type ErrResolverError struct {
+	err error
+}
+
+func (e ErrResolverError) Error() string {
+	return fmt.Sprintf("error while resolving conflict: %w", e.err)
+}
+
+func (e ErrResolverError) Unwrap() error {
+	return e.err
+}
+
 type ServerClient struct {
 	client  *http.Client
 	baseURL *url.URL
@@ -42,7 +58,7 @@ func (sc *ServerClient) lock(ctx context.Context) error {
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to upload changes (status code %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("failed to lock (status code %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
@@ -60,7 +76,7 @@ func (sc *ServerClient) unlock(ctx context.Context) error {
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to upload changes (status code %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("failed to unlock (status code %d): %s", resp.StatusCode, string(body))
 	}
 	return nil
 }
@@ -171,11 +187,11 @@ func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDat
 	log.Printf("num of conflicts: %d", len(conflicts.Sessions)+len(conflicts.Timeframes))
 	if len(conflicts.Sessions) > 0 || len(conflicts.Timeframes) > 0 {
 		if resolver == nil {
-			return Changes{}, ExportedDatabase{}, fmt.Errorf("conflicts detected, but no resolver provided")
+			return Changes{}, ExportedDatabase{}, ErrConflictNoResolver
 		} else {
 			changes2, err := resolver(conflicts)
 			if err != nil {
-				return Changes{}, ExportedDatabase{}, fmt.Errorf("resolve conflicts: %w", err)
+				return Changes{}, ExportedDatabase{}, ErrResolverError{err}
 			}
 			changes.Sessions = append(changes.Sessions, changes2.Sessions...)
 			changes.Timeframes = append(changes.Timeframes, changes2.Timeframes...)

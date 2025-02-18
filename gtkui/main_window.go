@@ -24,10 +24,11 @@ import (
 var MainWindowXML string
 
 type MainWindow struct {
-	token          tokens.Token
-	db             *database.Database
-	originalEDPath string
-	syncSemaphore  *semaphore.Weighted
+	token            tokens.Token
+	db               *database.Database
+	originalEDPath   string
+	syncSemaphore    *semaphore.Weighted
+	syncBackgroundCh chan<- struct{}
 
 	Window                *gtk.ApplicationWindow
 	newSessionButton      *gtk.Button
@@ -62,14 +63,25 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 		nsw.Window.SetApplication(mw.Window.Application())
 		nsw.Window.Show()
 	})
-	mw.syncButton.ConnectClicked(mw.sync)
+	mw.syncButton.ConnectClicked(func() {
+		mw.sync(true)
+	})
+	syncBackgroundCh := make(chan struct{})
+	mw.syncBackgroundCh = syncBackgroundCh
+	go func() {
+		for range syncBackgroundCh {
+			glib.IdleAdd(func() {
+				mw.sync(false)
+			})
+		}
+	}()
 
 	mw.currentListView = builder.GetObject("CurrentListView").Cast().(*gtk.ListView)
 	m := NewSessionListModel(db)
 	m2 := gtk.NewNoSelection(m)
 	mw.currentListView.SetModel(m2)
 
-	factory := NewSessionListItemFactory(&mw.Window.Window, db)
+	factory := NewSessionListItemFactory(&mw.Window.Window, db, mw.syncBackgroundCh)
 	mw.currentListView.SetFactory(&factory.ListItemFactory)
 
 	return mw
@@ -119,7 +131,9 @@ func (mw *MainWindow) updateOriginalED(ed sync.ExportedDatabase) error {
 	return json.NewEncoder(file).Encode(ed)
 }
 
-func (mw *MainWindow) sync() {
+func (mw *MainWindow) sync(interactive bool) {
+	// TODO: UI lags/doesn't interact on clicks after sync(false) or sync(true) runs
+	//       fixed
 	err := mw.syncSemaphore.Acquire(context.Background(), 1)
 	if err != nil {
 		// do not allow multiple syncs to happen at the same time
@@ -143,27 +157,46 @@ func (mw *MainWindow) sync() {
 		go func() {
 			for s := range status {
 				log.Println("sync status: ", s)
-				mw.syncStatusLabel.SetLabel(s)
+				glib.IdleAdd(func() {
+					mw.syncStatusLabel.SetLabel(s)
+				})
 			}
 		}()
 		original, err := mw.readOriginalED()
 		if err != nil {
 			log.Printf("read original ed: %s", err)
 		}
-		changes, newED, err := sc.SyncDatabase(context.Background(), original, mw.db, mw.resolveConflicts, status)
+		_, _ = original, sc
+		resolver := mw.resolveConflicts
+		if !interactive {
+			resolver = nil
+		}
+		changes, newED, err := sc.SyncDatabase(context.Background(), original, mw.db, resolver, status)
 		if err != nil {
 			log.Println("sync: ", err)
-			toast := adw.NewToast(fmt.Sprintf("同期に失敗しました。 %s", err))
-			toast.SetPriority(adw.ToastPriorityHigh)
-			mw.toastOverlay.AddToast(toast)
+			glib.IdleAdd(func() {
+				toast := adw.NewToast(fmt.Sprintf("同期に失敗しました。 %s", err))
+				toast.SetPriority(adw.ToastPriorityHigh)
+				mw.toastOverlay.AddToast(toast)
+			})
 			return
 		}
+		_ = changes
+		_ = newED
 		if err = mw.updateOriginalED(newED); err != nil {
 			log.Printf("update original ed: %s", err)
+			glib.IdleAdd(func() {
+				toast := adw.NewToast(fmt.Sprintf("元データベース更新に失敗しました。 %s", err))
+				toast.SetPriority(adw.ToastPriorityHigh)
+				mw.toastOverlay.AddToast(toast)
+			})
 		}
 		log.Printf("done: sessions=%d, timeframes=%d", len(changes.Sessions), len(changes.Timeframes))
-		toast := adw.NewToast(fmt.Sprintf("同期しました。 セッション: %d, 打刻: %d", len(changes.Sessions), len(changes.Timeframes)))
-		toast.SetPriority(adw.ToastPriorityHigh)
-		mw.toastOverlay.AddToast(toast)
+		glib.IdleAdd(func() {
+			//toast := adw.NewToast(fmt.Sprintf("同期しました。 セッション: %d, 打刻: %d", len(changes.Sessions), len(changes.Timeframes)))
+			toast := adw.NewToast("同期しました。")
+			toast.SetPriority(adw.ToastPriorityNormal)
+			mw.toastOverlay.AddToast(toast)
+		})
 	}()
 }
