@@ -105,7 +105,7 @@ func NewSessionListItemFactory(parent *gtk.Window, db *database.Database, change
 		})
 		edit := extend.NextSibling().(*gtk.Button)
 		edit.ConnectClicked(func() {
-			esw := NewEditSessionWindow(db, session.ID)
+			esw := NewEditSessionWindow(db, session.ID, changed)
 			esw.Window.SetTransientFor(parent)
 			esw.Window.SetApplication(parent.Application())
 			esw.Window.Show()

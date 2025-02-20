@@ -24,7 +24,7 @@ type ErrResolverError struct {
 }
 
 func (e ErrResolverError) Error() string {
-	return fmt.Sprintf("error while resolving conflict: %w", e.err)
+	return fmt.Sprintf("error while resolving conflict: %s", e.err)
 }
 
 func (e ErrResolverError) Unwrap() error {

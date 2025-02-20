@@ -132,8 +132,6 @@ func (mw *MainWindow) updateOriginalED(ed sync.ExportedDatabase) error {
 }
 
 func (mw *MainWindow) sync(interactive bool) {
-	// TODO: UI lags/doesn't interact on clicks after sync(false) or sync(true) runs
-	//       fixed
 	err := mw.syncSemaphore.Acquire(context.Background(), 1)
 	if err != nil {
 		// do not allow multiple syncs to happen at the same time

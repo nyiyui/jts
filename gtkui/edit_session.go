@@ -22,17 +22,19 @@ var EditSessionXML string
 
 type EditSessionWindow struct {
 	Window             *gtk.Window
-	sessionID          string
 	SessionId          *gtk.Label
 	SaveButton         *gtk.Button
 	DeleteButton       *gtk.Button
 	SessionDescription *gtk.Entry
 	SessionNotes       *gtk.TextView
 	Timeframes         *gtk.ColumnView
-	db                 *database.Database
+
+	sessionID string
+	db        *database.Database
+	changed   chan<- struct{}
 }
 
-func NewEditSessionWindow(db *database.Database, sessionID string) *EditSessionWindow {
+func NewEditSessionWindow(db *database.Database, sessionID string, changed chan<- struct{}) *EditSessionWindow {
 	builder := gtk.NewBuilderFromString(EditSessionXML)
 	esw := new(EditSessionWindow)
 	esw.Window = builder.GetObject("EditSessionWindow").Cast().(*gtk.Window)
@@ -44,8 +46,11 @@ func NewEditSessionWindow(db *database.Database, sessionID string) *EditSessionW
 	esw.SessionNotes = builder.GetObject("SessionNotes").Cast().(*gtk.TextView)
 	esw.SaveButton.ConnectClicked(esw.save)
 	esw.DeleteButton.ConnectClicked(esw.delete_)
-	esw.db = db
+
 	esw.sessionID = sessionID
+	esw.db = db
+	esw.changed = changed
+
 	session, err := db.GetSession(sessionID)
 	if err == nil {
 		esw.Window.SetTitle(fmt.Sprintf("%sを修正", session.Description))
@@ -68,7 +73,7 @@ func NewEditSessionWindow(db *database.Database, sessionID string) *EditSessionW
 		return tf.Duration().Round(1 * time.Second).String()
 	})
 	esw.Timeframes.AppendColumn(gtk.NewColumnViewColumn("時間", &factoryDuration.ListItemFactory))
-	factoryEdit := NewTimeframeEditListItemFactory(esw.Window, esw.db, sessionID)
+	factoryEdit := NewTimeframeEditListItemFactory(esw.Window, esw.db, sessionID, changed)
 	esw.Timeframes.AppendColumn(gtk.NewColumnViewColumn("操作", &factoryEdit.ListItemFactory))
 
 	return esw
@@ -85,6 +90,7 @@ func (esw *EditSessionWindow) save() {
 		panic(err)
 	}
 	esw.Window.Close()
+	esw.changed <- struct{}{}
 }
 
 func (esw *EditSessionWindow) delete_() {
@@ -163,7 +169,7 @@ func NewTimeframeListItemFactory(fn func(data.Timeframe) string) *gtk.SignalList
 	return factory
 }
 
-func NewTimeframeEditListItemFactory(window *gtk.Window, db *database.Database, sessionID string) *gtk.SignalListItemFactory {
+func NewTimeframeEditListItemFactory(window *gtk.Window, db *database.Database, sessionID string, changed chan<- struct{}) *gtk.SignalListItemFactory {
 	factory := gtk.NewSignalListItemFactory()
 	// we can't use builder factory as it doesn't support introspection of Go objects
 	factory.ConnectSetup(func(object *glib.Object) {
@@ -177,7 +183,7 @@ func NewTimeframeEditListItemFactory(window *gtk.Window, db *database.Database, 
 		button := cell.Child().(*gtk.Button)
 		timeframe := TimeframeListModelType.ObjectValue(cell.Item())
 		button.ConnectClicked(func() {
-			PresentDialog(window, NewEditTimeframeWindow(db, sessionID, timeframe.ID).Window)
+			PresentDialog(window, NewEditTimeframeWindow(db, sessionID, timeframe.ID, changed).Window)
 		})
 	})
 	// nothing to do for unbind and teardown

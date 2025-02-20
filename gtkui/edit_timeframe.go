@@ -16,8 +16,6 @@ var EditTimeframeXML string
 
 type EditTimeframeWindow struct {
 	Window             *gtk.Window
-	sessionID          string
-	timeframeID        string
 	TimeframeId        *gtk.Label
 	SaveButton         *gtk.Button
 	DeleteButton       *gtk.Button
@@ -25,12 +23,16 @@ type EditTimeframeWindow struct {
 	TimeframeStartHint *gtk.Label
 	TimeframeEnd       *gtk.Entry
 	TimeframeEndHint   *gtk.Label
-	timeframe          data.Timeframe
-	timeFormat         string
-	db                 *database.Database
+
+	sessionID   string
+	timeframeID string
+	timeframe   data.Timeframe
+	timeFormat  string
+	db          *database.Database
+	changed     chan<- struct{}
 }
 
-func NewEditTimeframeWindow(db *database.Database, sessionID, timeframeID string) *EditTimeframeWindow {
+func NewEditTimeframeWindow(db *database.Database, sessionID, timeframeID string, changed chan<- struct{}) *EditTimeframeWindow {
 	builder := gtk.NewBuilderFromString(EditTimeframeXML)
 	etw := new(EditTimeframeWindow)
 	etw.timeFormat = "2006-01-02 15:04"
@@ -42,6 +44,7 @@ func NewEditTimeframeWindow(db *database.Database, sessionID, timeframeID string
 	etw.TimeframeStartHint = builder.GetObject("TimeframeStartHint").Cast().(*gtk.Label)
 	etw.TimeframeEnd = builder.GetObject("TimeframeEnd").Cast().(*gtk.Entry)
 	etw.TimeframeEndHint = builder.GetObject("TimeframeEndHint").Cast().(*gtk.Label)
+	etw.changed = changed
 
 	etw.TimeframeId.SetLabel(timeframeID)
 	etw.SaveButton.ConnectClicked(etw.save)
@@ -98,6 +101,7 @@ func (etw *EditTimeframeWindow) save() {
 		panic(err)
 	}
 	etw.Window.Destroy()
+	etw.changed <- struct{}{}
 }
 
 func (etw *EditTimeframeWindow) delete_() {

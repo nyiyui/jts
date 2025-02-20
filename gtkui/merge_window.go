@@ -43,6 +43,7 @@ func NewMergeWindow(mc sync.MergeConflicts, changes chan<- sync.Changes, errs ch
 		Sessions:   make([]sync.Change[data.Session], len(mc.Sessions)),
 		Timeframes: make([]sync.Change[data.Timeframe], len(mc.Timeframes)),
 	}
+	log.Printf("mc %v", mc)
 	mw.Window = builder.GetObject("MergeWindow").Cast().(*adw.Window)
 	mw.splitView = builder.GetObject("split_view").Cast().(*adw.OverlaySplitView)
 	mw.saveButton = builder.GetObject("save_button").Cast().(*gtk.Button)
