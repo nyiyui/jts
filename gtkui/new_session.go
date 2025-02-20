@@ -18,9 +18,10 @@ type NewSessionWindow struct {
 	SessionDescription *gtk.Entry
 	SessionNotes       *gtk.TextView
 	db                 *database.Database
+	changed            chan<- struct{}
 }
 
-func NewNewSessionWindow(db *database.Database) *NewSessionWindow {
+func NewNewSessionWindow(db *database.Database, changed chan<- struct{}) *NewSessionWindow {
 	builder := gtk.NewBuilderFromString(NewSessionXML)
 	nsw := new(NewSessionWindow)
 	nsw.Window = builder.GetObject("NewSessionWindow").Cast().(*gtk.Window)
@@ -29,6 +30,7 @@ func NewNewSessionWindow(db *database.Database) *NewSessionWindow {
 	nsw.SessionNotes = builder.GetObject("SessionNotes").Cast().(*gtk.TextView)
 	nsw.SaveButton.ConnectClicked(nsw.save)
 	nsw.db = db
+	nsw.changed = changed
 	return nsw
 }
 
@@ -48,4 +50,5 @@ func (nsw *NewSessionWindow) save() {
 		panic(err)
 	}
 	nsw.Window.Close()
+	nsw.changed <- struct{}{}
 }

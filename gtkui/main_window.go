@@ -57,7 +57,7 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 	mw.syncConflictButtonBox = builder.GetObject("SyncConflictButtonBox").Cast().(*gtk.Box)
 
 	mw.newSessionButton.ConnectClicked(func() {
-		nsw := NewNewSessionWindow(db)
+		nsw := NewNewSessionWindow(db, mw.syncBackgroundCh)
 		nsw.Window.SetTransientFor(&mw.Window.Window)
 		nsw.Window.SetDestroyWithParent(true) // TODO: dialog lives on (after MainWindow is closed) somehow
 		nsw.Window.SetApplication(mw.Window.Application())
