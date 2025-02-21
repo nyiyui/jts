@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	_ "embed"
 
@@ -16,6 +17,7 @@ import (
 )
 
 func main() {
+	runtime.LockOSThread() // for gtk
 	path := configdir.LocalConfig("jts")
 	if err := configdir.MakePath(path); err != nil {
 		log.Fatalf("create config dir: %s", err)

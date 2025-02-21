@@ -1,7 +1,6 @@
 package gtkui
 
 import (
-	"context"
 	"database/sql"
 	_ "embed"
 	"errors"
@@ -132,8 +131,8 @@ func (m *TimeframeListModel) FillFromDatabase() {
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		panic(err)
 	}
-	err = m.sema.Acquire(context.Background(), 1)
-	if err != nil {
+	ok := m.sema.TryAcquire(1)
+	if !ok {
 		// this probably means we are calling FillFromDatabase too fast
 		// there is no backpressure, so we should not add more to the metaphorical backlog
 		return

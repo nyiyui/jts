@@ -64,15 +64,13 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 		nsw.Window.Show()
 	})
 	mw.syncButton.ConnectClicked(func() {
-		mw.sync(true)
+		go mw.sync(true)
 	})
 	syncBackgroundCh := make(chan struct{})
 	mw.syncBackgroundCh = syncBackgroundCh
 	go func() {
 		for range syncBackgroundCh {
-			glib.IdleAdd(func() {
-				mw.sync(false)
-			})
+			go mw.sync(false)
 		}
 	}()
 
@@ -131,70 +129,73 @@ func (mw *MainWindow) updateOriginalED(ed sync.ExportedDatabase) error {
 	return json.NewEncoder(file).Encode(ed)
 }
 
+// sync synchronizes the local database with the server database.
+// Does not have to be called from the UI goroutine.
 func (mw *MainWindow) sync(interactive bool) {
-	err := mw.syncSemaphore.Acquire(context.Background(), 1)
-	if err != nil {
+	ok := mw.syncSemaphore.TryAcquire(1)
+	if !ok {
 		// do not allow multiple syncs to happen at the same time
 		// as that is pretty much useless
 		return
 	}
 	defer mw.syncSemaphore.Release(1)
-	mw.syncButton.SetSensitive(false)
-	mw.syncStatus.SetVisible(true)
+	glib.IdleAdd(func() {
+		mw.syncButton.SetSensitive(false)
+		mw.syncStatus.SetVisible(true)
+	})
+	defer glib.IdleAdd(func() {
+		mw.syncButton.SetSensitive(true)
+		mw.syncStatus.SetVisible(false)
+	})
+	baseURL, err := url.Parse("https://jts.kiyuri.ca")
+	if err != nil {
+		panic(err)
+	}
+	sc := sync.NewServerClient(&http.Client{Timeout: 5 * time.Second}, baseURL, mw.token)
+	status := make(chan string)
+	defer close(status)
 	go func() {
-		defer func() {
-			mw.syncButton.SetSensitive(true)
-			mw.syncStatus.SetVisible(false)
-		}()
-		baseURL, err := url.Parse("https://jts.kiyuri.ca")
-		if err != nil {
-			panic(err)
-		}
-		sc := sync.NewServerClient(&http.Client{Timeout: 5 * time.Second}, baseURL, mw.token)
-		status := make(chan string)
-		go func() {
-			for s := range status {
-				log.Println("sync status: ", s)
-				glib.IdleAdd(func() {
-					mw.syncStatusLabel.SetLabel(s)
-				})
-			}
-		}()
-		original, err := mw.readOriginalED()
-		if err != nil {
-			log.Printf("read original ed: %s", err)
-		}
-		_, _ = original, sc
-		resolver := mw.resolveConflicts
-		if !interactive {
-			resolver = nil
-		}
-		changes, newED, err := sc.SyncDatabase(context.Background(), original, mw.db, resolver, status)
-		if err != nil {
-			log.Println("sync: ", err)
+		for s := range status {
+			log.Println("sync status: ", s)
 			glib.IdleAdd(func() {
-				toast := adw.NewToast(fmt.Sprintf("同期に失敗しました。 %s", err))
-				toast.SetPriority(adw.ToastPriorityHigh)
-				mw.toastOverlay.AddToast(toast)
-			})
-			return
-		}
-		_ = changes
-		_ = newED
-		if err = mw.updateOriginalED(newED); err != nil {
-			log.Printf("update original ed: %s", err)
-			glib.IdleAdd(func() {
-				toast := adw.NewToast(fmt.Sprintf("元データベース更新に失敗しました。 %s", err))
-				toast.SetPriority(adw.ToastPriorityHigh)
-				mw.toastOverlay.AddToast(toast)
+				mw.syncStatusLabel.SetLabel(s)
 			})
 		}
-		log.Printf("done: sessions=%d, timeframes=%d", len(changes.Sessions), len(changes.Timeframes))
+	}()
+	original, err := mw.readOriginalED()
+	if err != nil {
+		log.Printf("read original ed: %s", err)
+	}
+	_, _ = original, sc
+	resolver := mw.resolveConflicts
+	if !interactive {
+		resolver = nil
+	}
+	// TODO: SyncDatabase call causes choppiness in GTK
+	changes, newED, err := sc.SyncDatabase(context.Background(), original, mw.db, resolver, status)
+	if err != nil {
+		log.Println("sync: ", err)
 		glib.IdleAdd(func() {
-			//toast := adw.NewToast(fmt.Sprintf("同期しました。 セッション: %d, 打刻: %d", len(changes.Sessions), len(changes.Timeframes)))
-			toast := adw.NewToast("同期しました。")
-			toast.SetPriority(adw.ToastPriorityNormal)
+			toast := adw.NewToast(fmt.Sprintf("同期に失敗しました。 %s", err))
+			toast.SetPriority(adw.ToastPriorityHigh)
 			mw.toastOverlay.AddToast(toast)
 		})
-	}()
+		return
+	}
+	_ = changes
+	_ = newED
+	if err = mw.updateOriginalED(newED); err != nil {
+		log.Printf("update original ed: %s", err)
+		glib.IdleAdd(func() {
+			toast := adw.NewToast(fmt.Sprintf("元データベース更新に失敗しました。 %s", err))
+			toast.SetPriority(adw.ToastPriorityHigh)
+			mw.toastOverlay.AddToast(toast)
+		})
+	}
+	log.Printf("done: sessions=%d, timeframes=%d", len(changes.Sessions), len(changes.Timeframes))
+	glib.IdleAdd(func() {
+		toast := adw.NewToast(fmt.Sprintf("同期しました。 セッション: %d, 打刻: %d", len(changes.Sessions), len(changes.Timeframes)))
+		toast.SetPriority(adw.ToastPriorityNormal)
+		mw.toastOverlay.AddToast(toast)
+	})
 }

@@ -1,9 +1,9 @@
 package gtkui
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/diamondburned/gotk4/pkg/core/gioutil"
@@ -30,8 +30,8 @@ func NewSessionListModel(db *database.Database) *SessionListModel {
 }
 
 func (m *SessionListModel) FillFromDatabase() {
-	err := m.sema.Acquire(context.Background(), 1)
-	if err != nil {
+	ok := m.sema.TryAcquire(1)
+	if !ok {
 		// this probably means we are calling FillFromDatabase too fast
 		// there is no backpressure, so we should not add more to the metaphorical backlog
 		return
@@ -40,14 +40,17 @@ func (m *SessionListModel) FillFromDatabase() {
 	if err != nil && err != sql.ErrNoRows {
 		panic(err)
 	}
+	log.Printf("idleadd")
 	if err == sql.ErrNoRows {
 		glib.IdleAdd(func() {
 			defer m.sema.Release(1)
+			log.Printf("splice0")
 			m.Splice(0, m.Len())
 		})
 	} else {
 		glib.IdleAdd(func() {
 			defer m.sema.Release(1)
+			log.Printf("splice")
 			m.Splice(0, m.Len(), sessions...)
 		})
 	}
@@ -57,6 +60,7 @@ func (m *SessionListModel) updateHook(op int, db string, table string, rowid int
 	if table != "sessions" && table != "time_frames" {
 		return
 	}
+	log.Printf("updateHook: %d %s %s %d", op, db, table, rowid)
 	m.FillFromDatabase()
 }
 
