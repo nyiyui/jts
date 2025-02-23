@@ -199,10 +199,13 @@ func (sc *ServerClient) SyncDatabase(ctx context.Context, originalED ExportedDat
 	}
 
 	for i, s := range changes.Sessions {
-		log.Printf("change %d: session: %s", i, s)
+		log.Printf("change %d: session: %v", i, s)
 	}
 	for i, t := range changes.Timeframes {
-		log.Printf("change %d: timeframe: %s", i, t)
+		log.Printf("change %d: timeframe: %v", i, t)
+	}
+	for i, t := range changes.Tasks {
+		log.Printf("change %d: task: %v", i, t)
 	}
 
 	if status != nil {

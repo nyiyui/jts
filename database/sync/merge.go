@@ -14,6 +14,7 @@ import (
 type ExportedDatabase struct {
 	Sessions   []data.Session
 	Timeframes []data.Timeframe
+	Tasks      []data.Task
 }
 
 func Export(d *database.Database) (ExportedDatabase, error) {
@@ -23,6 +24,10 @@ func Export(d *database.Database) (ExportedDatabase, error) {
 		return ExportedDatabase{}, err
 	}
 	err = d.DB.Select(&ed.Timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames")
+	if err != nil {
+		return ExportedDatabase{}, err
+	}
+	err = d.DB.Select(&ed.Tasks, "SELECT id, description FROM tasks")
 	if err != nil {
 		return ExportedDatabase{}, err
 	}
@@ -52,6 +57,10 @@ func replace(tx *sqlx.Tx, ed ExportedDatabase) error {
 	if err != nil {
 		return err
 	}
+	_, err = tx.Exec("DELETE FROM tasks")
+	if err != nil {
+		return err
+	}
 
 	for _, s := range ed.Sessions {
 		_, err = tx.Exec("INSERT INTO sessions (id, description, notes) VALUES (?, ?, ?)", s.ID, s.Description, s.Notes)
@@ -61,6 +70,12 @@ func replace(tx *sqlx.Tx, ed ExportedDatabase) error {
 	}
 	for _, tf := range ed.Timeframes {
 		_, err = tx.Exec("INSERT INTO time_frames (id, session_id, start_time, end_time) VALUES (?, ?, ?, ?)", tf.ID, tf.SessionID, tf.Start, tf.End)
+		if err != nil {
+			return err
+		}
+	}
+	for _, tf := range ed.Tasks {
+		_, err = tx.Exec("INSERT INTO tasks (id, description) VALUES (?, ?)", tf.ID, tf.Description)
 		if err != nil {
 			return err
 		}
@@ -104,12 +119,25 @@ func importChanges(tx *sqlx.Tx, c Changes) error {
 			return fmt.Errorf("change %d (%#v): %w", i, ch, err)
 		}
 	}
+	for i, ch := range c.Tasks {
+		log.Printf("importing task change %d: %#v", i, ch)
+		switch ch.Operation {
+		case ChangeOperationExist:
+			_, err = tx.Exec("REPLACE INTO tasks (id, description) VALUES (?, ?)", ch.Data.ID, ch.Data.Description)
+		case ChangeOperationRemove:
+			_, err = tx.Exec("DELETE FROM tasks WHERE id = ?", ch.Data.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("change %d (%#v): %w", i, ch, err)
+		}
+	}
 	return nil
 }
 
 type MergeConflicts struct {
 	Sessions   []MergeConflict[data.Session]
 	Timeframes []MergeConflict[data.Timeframe]
+	Tasks      []MergeConflict[data.Task]
 }
 
 type MergeConflict[T any] struct {
@@ -119,6 +147,7 @@ type MergeConflict[T any] struct {
 type Changes struct {
 	Sessions   []Change[data.Session]
 	Timeframes []Change[data.Timeframe]
+	Tasks      []Change[data.Task]
 }
 
 type Change[T any] struct {
@@ -149,15 +178,9 @@ func Merge(original, local, remote ExportedDatabase) (Changes, MergeConflicts) {
 	changesS, conflictsS := mergeSlice(mergeSession, getIDSession, original.Sessions, local.Sessions, remote.Sessions)
 	// timeframes
 	changesT, conflictsT := mergeSlice(mergeTimeframe, getIDTimeframe, original.Timeframes, local.Timeframes, remote.Timeframes)
-	return Changes{changesS, changesT}, MergeConflicts{conflictsS, conflictsT}
-}
-
-func getIDSession(s data.Session) string {
-	return s.ID
-}
-
-func getIDTimeframe(tf data.Timeframe) string {
-	return tf.ID
+	// tasks
+	changesTasks, conflictsTasks := mergeSlice(mergeTask, getIDTask, original.Tasks, local.Tasks, remote.Tasks)
+	return Changes{changesS, changesT, changesTasks}, MergeConflicts{conflictsS, conflictsT, conflictsTasks}
 }
 
 func mergeSlice[T any](merge func(original, local, remote T) ([]Change[T], []MergeConflict[T]), getID func(T) string, original, local, remote []T) ([]Change[T], []MergeConflict[T]) {
@@ -227,6 +250,18 @@ func merge[T any](equal func(a, b T) bool, original, local, remote T) ([]Change[
 	}
 }
 
+func getIDSession(s data.Session) string {
+	return s.ID
+}
+
+func getIDTimeframe(tf data.Timeframe) string {
+	return tf.ID
+}
+
+func getIDTask(t data.Task) string {
+	return t.ID
+}
+
 func mergeSession(original, local, remote data.Session) ([]Change[data.Session], []MergeConflict[data.Session]) {
 	return merge[data.Session](func(a, b data.Session) bool {
 		return a.Equal(b)
@@ -235,6 +270,12 @@ func mergeSession(original, local, remote data.Session) ([]Change[data.Session],
 
 func mergeTimeframe(original, local, remote data.Timeframe) ([]Change[data.Timeframe], []MergeConflict[data.Timeframe]) {
 	return merge[data.Timeframe](func(a, b data.Timeframe) bool {
+		return a.Equal(b)
+	}, original, local, remote)
+}
+
+func mergeTask(original, local, remote data.Task) ([]Change[data.Task], []MergeConflict[data.Task]) {
+	return merge[data.Task](func(a, b data.Task) bool {
 		return a.Equal(b)
 	}, original, local, remote)
 }

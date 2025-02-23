@@ -87,10 +87,13 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 
 func (mw *MainWindow) resolveConflicts(mc sync.MergeConflicts) (sync.Changes, error) {
 	for i, c := range mc.Sessions {
-		log.Printf("conflict %d: session: %s", i, c)
+		log.Printf("conflict %d: session: %v", i, c)
 	}
 	for i, c := range mc.Timeframes {
-		log.Printf("conflict %d: timeframe: %s", i, c)
+		log.Printf("conflict %d: timeframe: %v", i, c)
+	}
+	for i, c := range mc.Tasks {
+		log.Printf("conflict %d: task: %v", i, c)
 	}
 	changes := make(chan sync.Changes)
 	errs := make(chan error)
