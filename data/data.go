@@ -12,10 +12,11 @@ type Session struct {
 	Description string      `db:"description"`
 	Notes       string      `db:"notes"`
 	Timeframes  []Timeframe `json:"timeframes,omitempty"`
+	TaskID      string      `db:"task_id"`
 }
 
 func (s Session) EqualProperties(other Session) bool {
-	return s.ID == other.ID && s.Description == other.Description && s.Notes == other.Notes
+	return s.ID == other.ID && s.Description == other.Description && s.Notes == other.Notes && s.TaskID == other.TaskID
 }
 
 func (s Session) Equal(other Session) bool {
@@ -27,10 +28,11 @@ type Timeframe struct {
 	SessionID string    `db:"session_id"`
 	Start     time.Time `db:"start_time"`
 	End       time.Time `db:"end_time"`
+	Done      bool      `db:"done"`
 }
 
 func (tf Timeframe) Equal(other Timeframe) bool {
-	return tf.ID == other.ID && tf.SessionID == other.SessionID && tf.Start.Equal(other.Start) && tf.End.Equal(other.End)
+	return tf.ID == other.ID && tf.SessionID == other.SessionID && tf.Start.Equal(other.Start) && tf.End.Equal(other.End) && tf.Done == other.Done
 }
 
 func (tf Timeframe) StringStart() string {
@@ -51,4 +53,13 @@ func (tf Timeframe) StringEnd() string {
 
 func (tf Timeframe) Duration() time.Duration {
 	return tf.End.Sub(tf.Start)
+}
+
+type Task struct {
+	ID          string `db:"id"`
+	Description string `db:"description"`
+}
+
+func (t Task) Equal(other Task) bool {
+	return t.ID == other.ID && t.Description == other.Description
 }
