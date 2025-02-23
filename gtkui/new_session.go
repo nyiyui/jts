@@ -13,18 +13,23 @@ import (
 var NewSessionXML string
 
 type NewSessionWindow struct {
-	Window             *gtk.Window
-	SaveButton         *gtk.Button
-	SessionDescription *gtk.Entry
-	SessionNotes       *gtk.TextView
-	db                 *database.Database
-	changed            chan<- struct{}
+	Window               *gtk.Window
+	SaveButton           *gtk.Button
+	TaskDescription      *gtk.Label
+	TaskDescriptionLabel *gtk.Label
+	SessionDescription   *gtk.Entry
+	SessionNotes         *gtk.TextView
+	db                   *database.Database
+	task                 data.Task
+	changed              chan<- struct{}
 }
 
 func NewNewSessionWindow(db *database.Database, changed chan<- struct{}) *NewSessionWindow {
 	builder := gtk.NewBuilderFromString(NewSessionXML)
 	nsw := new(NewSessionWindow)
 	nsw.Window = builder.GetObject("NewSessionWindow").Cast().(*gtk.Window)
+	nsw.TaskDescription = builder.GetObject("TaskDescription").Cast().(*gtk.Label)
+	nsw.TaskDescriptionLabel = builder.GetObject("TaskDescriptionLabel").Cast().(*gtk.Label)
 	nsw.SaveButton = builder.GetObject("SaveButton").Cast().(*gtk.Button)
 	nsw.SessionDescription = builder.GetObject("SessionDescription").Cast().(*gtk.Entry)
 	nsw.SessionNotes = builder.GetObject("SessionNotes").Cast().(*gtk.TextView)
@@ -32,6 +37,13 @@ func NewNewSessionWindow(db *database.Database, changed chan<- struct{}) *NewSes
 	nsw.db = db
 	nsw.changed = changed
 	return nsw
+}
+
+func (nsw *NewSessionWindow) SetTask(task data.Task) {
+	nsw.task = task
+	nsw.TaskDescription.SetText(task.Description)
+	nsw.TaskDescriptionLabel.SetVisible(true)
+	nsw.TaskDescription.SetVisible(true)
 }
 
 func (nsw *NewSessionWindow) save() {
@@ -45,6 +57,7 @@ func (nsw *NewSessionWindow) save() {
 				End:   time.Now(),
 			},
 		},
+		TaskID: nsw.task.ID,
 	})
 	if err != nil {
 		panic(err)

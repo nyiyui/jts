@@ -2,61 +2,98 @@
 <interface>
   <requires lib="gtk" version="4.6"/>
   <requires lib="adwaita" version="1.6"/>
-  <object class="GtkApplicationWindow" id="MainWindow">
-    <property name="titlebar">
-      <object class="GtkHeaderBar">
-        <child>
-          <object class="GtkButton" id="NewSessionButton">
-            <property name="label">セッションを作成</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkButton" id="SyncButton">
-            <property name="label">サーバーと同期</property>
-          </object>
-        </child>
-        <child type="end">
-          <object class="GtkBox" id="SyncStatus">
+  <object class="AdwApplicationWindow" id="MainWindow">
+    <property name="content">
+      <object class="AdwToolbarView">
+        <child type="top">
+          <object class="AdwHeaderBar">
+            <property name="title-widget">
+              <object class="AdwViewSwitcher">
+                <property name="stack">stack</property>
+                <property name="policy">wide</property>
+              </object>
+            </property>
             <child>
-              <object class="GtkBox" id="SyncConflictButtonBox">
-                <property name="visible">false</property>
-                <property name="margin-end">5sp</property>
+              <object class="GtkButton" id="NewSessionButton">
+                <property name="label">セッションを作成</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="SyncButton">
+                <property name="label">サーバーと同期</property>
+              </object>
+            </child>
+            <child type="end">
+              <object class="GtkBox" id="SyncStatus">
                 <child>
-                  <object class="GtkButton">
-                    <property name="label">上書き解消</property>
+                  <object class="GtkBox" id="SyncConflictButtonBox">
+                    <property name="visible">false</property>
+                    <property name="margin-end">5sp</property>
+                    <child>
+                      <object class="GtkButton">
+                        <property name="label">上書き解消</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <property name="visible">false</property>
+                <child>
+                  <object class="GtkLabel" id="SyncStatusLabel">
+                    <property name="label">同期中</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwSpinner">
+                    <property name="halign">center</property>
+                    <property name="valign">center</property>
+                    <!-- add padding between label -->
+                    <property name="margin-start">5sp</property>
                   </object>
                 </child>
               </object>
             </child>
-            <property name="visible">false</property>
+          </object>
+        </child>
+        <property name="content">
+          <object class="AdwToastOverlay" id="ToastOverlay">
             <child>
-              <object class="GtkLabel" id="SyncStatusLabel">
-                <property name="label">同期中</property>
+              <object class="AdwViewStack" id="stack">
+                <child>
+                  <object class="AdwViewStackPage">
+                    <property name="name">session_list</property>
+                    <property name="title" translatable="yes">セッション一覧</property>
+                    <property name="child">
+                      <object class="GtkScrolledWindow">
+                        <child>
+                          <object class="GtkListView" id="CurrentListView"/>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwViewStackPage">
+                    <property name="name">task_list</property>
+                    <property name="title" translatable="yes">タスク一覧</property>
+                    <property name="child">
+                      <object class="GtkScrolledWindow">
+                        <child>
+                          <object class="GtkListView" id="TaskListView"/>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
               </object>
             </child>
-            <child>
-              <object class="AdwSpinner">
-                <property name="halign">center</property>
-                <property name="valign">center</property>
-                <!-- add padding between label -->
-                <property name="margin-start">5sp</property>
-              </object>
-            </child>
+          </object>
+        </property>
+        <child type="bottom">
+          <object class="AdwViewSwitcherBar" id="switcher_bar">
+            <property name="stack">stack</property>
           </object>
         </child>
       </object>
     </property>
-    <property name="title">セッション一覧</property>
-    <child>
-      <object class="AdwToastOverlay" id="ToastOverlay">
-        <child>
-          <object class="GtkScrolledWindow">
-            <child>
-              <object class="GtkListView" id="CurrentListView"/>
-            </child>
-          </object>
-        </child>
-      </object>
-    </child>
   </object>
 </interface>

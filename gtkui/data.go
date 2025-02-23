@@ -60,7 +60,6 @@ func (m *SessionListModel) updateHook(op int, db string, table string, rowid int
 	if table != "sessions" && table != "time_frames" {
 		return
 	}
-	log.Printf("updateHook: %d %s %s %d", op, db, table, rowid)
 	m.FillFromDatabase()
 }
 
@@ -113,6 +112,91 @@ func NewSessionListItemFactory(parent *gtk.Window, db *database.Database, change
 			esw.Window.SetTransientFor(parent)
 			esw.Window.SetApplication(parent.Application())
 			esw.Window.Show()
+		})
+	})
+	// nothing to do for unbind and teardown
+	return factory
+}
+
+var TaskListModelType = gioutil.NewListModelType[data.Task]()
+
+type TaskListModel struct {
+	*gioutil.ListModel[data.Task]
+	db   *database.Database
+	sema *semaphore.Weighted
+}
+
+func NewTaskListModel(db *database.Database) *TaskListModel {
+	m := &TaskListModel{TaskListModelType.New(), db, semaphore.NewWeighted(1)}
+	m.FillFromDatabase()
+	db.Notify(m.updateHook) // TODO: leak?
+	return m
+}
+
+func (m *TaskListModel) FillFromDatabase() {
+	ok := m.sema.TryAcquire(1)
+	if !ok {
+		// this probably means we are calling FillFromDatabase too fast
+		// there is no backpressure, so we should not add more to the metaphorical backlog
+		return
+	}
+	tasks, err := m.db.GetUndoneTasks()
+	if err != nil && err != sql.ErrNoRows {
+		panic(err)
+	}
+	log.Printf("there are %d tasks", len(tasks))
+	if err == sql.ErrNoRows {
+		glib.IdleAdd(func() {
+			defer m.sema.Release(1)
+			m.Splice(0, m.Len())
+		})
+	} else {
+		glib.IdleAdd(func() {
+			defer m.sema.Release(1)
+			m.Splice(0, m.Len(), tasks...)
+		})
+	}
+}
+
+func (m *TaskListModel) updateHook(op int, db string, table string, rowid int64) {
+	if table != "tasks" && table != "sessions" && table != "time_frames" {
+		return
+	}
+	m.FillFromDatabase()
+}
+
+func NewTaskListItemFactory(parent *gtk.Window, db *database.Database, changed chan<- struct{}) *gtk.SignalListItemFactory {
+	factory := gtk.NewSignalListItemFactory()
+	// we can't use builder factory as it doesn't support introspection of Go objects
+	factory.ConnectSetup(func(object *glib.Object) {
+		listItem := object.Cast().(*gtk.ListItem)
+		label := gtk.NewLabel("")
+		label.SetHExpand(true)
+		box := gtk.NewBox(gtk.OrientationVertical, 0)
+		actions := gtk.NewBox(gtk.OrientationHorizontal, 0)
+		newSession := gtk.NewButtonWithLabel("セッション作成")
+		actions.Append(newSession)
+		actions.SetHAlign(gtk.AlignEnd)
+		box.Append(label)
+		box.Append(actions)
+		listItem.SetChild(box)
+	})
+	factory.ConnectBind(func(object *glib.Object) {
+		listItem := object.Cast().(*gtk.ListItem)
+		box := listItem.Child().(*gtk.Box)
+		label := box.FirstChild().(*gtk.Label)
+		actions := label.NextSibling().(*gtk.Box)
+		newSession := actions.FirstChild().(*gtk.Button)
+
+		task := TaskListModelType.ObjectValue(listItem.Item())
+		label.SetText(task.Description)
+		newSession.ConnectClicked(func() {
+			nsw := NewNewSessionWindow(db, changed)
+			nsw.SetTask(task)
+			nsw.Window.SetTransientFor(parent)
+			nsw.Window.SetDestroyWithParent(true) // TODO: dialog lives on (after MainWindow is closed) somehow
+			nsw.Window.SetApplication(parent.Application())
+			nsw.Window.Show()
 		})
 	})
 	// nothing to do for unbind and teardown

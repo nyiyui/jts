@@ -30,7 +30,7 @@ type MainWindow struct {
 	syncSemaphore    *semaphore.Weighted
 	syncBackgroundCh chan<- struct{}
 
-	Window                *gtk.ApplicationWindow
+	Window                *adw.ApplicationWindow
 	newSessionButton      *gtk.Button
 	toastOverlay          *adw.ToastOverlay
 	syncStatus            *gtk.Box
@@ -38,6 +38,7 @@ type MainWindow struct {
 	syncStatusLabel       *gtk.Label
 	syncConflictButtonBox *gtk.Box
 	currentListView       *gtk.ListView
+	taskListView          *gtk.ListView
 }
 
 func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath string) *MainWindow {
@@ -48,7 +49,7 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 	mw.originalEDPath = originalEDPath
 	mw.syncSemaphore = semaphore.NewWeighted(1)
 
-	mw.Window = builder.GetObject("MainWindow").Cast().(*gtk.ApplicationWindow)
+	mw.Window = builder.GetObject("MainWindow").Cast().(*adw.ApplicationWindow)
 	mw.newSessionButton = builder.GetObject("NewSessionButton").Cast().(*gtk.Button)
 	mw.toastOverlay = builder.GetObject("ToastOverlay").Cast().(*adw.ToastOverlay)
 	mw.syncStatus = builder.GetObject("SyncStatus").Cast().(*gtk.Box)
@@ -75,12 +76,21 @@ func NewMainWindow(db *database.Database, token tokens.Token, originalEDPath str
 	}()
 
 	mw.currentListView = builder.GetObject("CurrentListView").Cast().(*gtk.ListView)
-	m := NewSessionListModel(db)
-	m2 := gtk.NewNoSelection(m)
-	mw.currentListView.SetModel(m2)
-
-	factory := NewSessionListItemFactory(&mw.Window.Window, db, mw.syncBackgroundCh)
-	mw.currentListView.SetFactory(&factory.ListItemFactory)
+	mw.taskListView = builder.GetObject("TaskListView").Cast().(*gtk.ListView)
+	{
+		m := NewSessionListModel(db)
+		m2 := gtk.NewNoSelection(m)
+		mw.currentListView.SetModel(m2)
+		factory := NewSessionListItemFactory(&mw.Window.Window, db, mw.syncBackgroundCh)
+		mw.currentListView.SetFactory(&factory.ListItemFactory)
+	}
+	{
+		m := NewTaskListModel(db)
+		m2 := gtk.NewNoSelection(m)
+		mw.taskListView.SetModel(m2)
+		factory := NewTaskListItemFactory(&mw.Window.Window, db, mw.syncBackgroundCh)
+		mw.taskListView.SetFactory(&factory.ListItemFactory)
+	}
 
 	return mw
 }

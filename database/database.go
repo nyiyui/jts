@@ -199,6 +199,23 @@ func (d *Database) DeleteSession(id string) error {
 	return tx.Commit()
 }
 
+func (d *Database) GetUndoneTasks() ([]data.Task, error) {
+	var tasks []data.Task
+	err := d.DB.Select(&tasks, `
+SELECT id, description
+FROM tasks
+WHERE id IN (SELECT task_id
+             FROM sessions
+						 WHERE id IN (SELECT session_id
+						              FROM time_frames
+													WHERE time_frames.done = FALSE))
+`)
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 // UpdateHookFn is called when a database update is made.
 // op is one of SQLITE_INSERT, SQLITE_UPDATE, SQLITE_DELETE.
 // cf. sqlite3.SQLiteConn.RegisterUpdateHook
