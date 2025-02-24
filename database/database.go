@@ -209,6 +209,10 @@ WHERE id IN (SELECT task_id
 						 WHERE id IN (SELECT session_id
 						              FROM time_frames
 													WHERE time_frames.done = FALSE))
+UNION ALL
+SELECT id, description
+FROM tasks
+WHERE id NOT IN (SELECT task_id FROM sessions WHERE task_id IS NOT NULL)
 `)
 	if err != nil {
 		return nil, err
