@@ -123,7 +123,7 @@ func (d *Database) GetSession(id string) (data.Session, error) {
 
 func (d *Database) AddSession(session data.Session) (string, error) {
 	tx := d.DB.MustBegin()
-	res, err := tx.Exec("INSERT INTO sessions (description, notes, task_id) VALUES (?)", session.Description, session.Notes, session.TaskID)
+	res, err := tx.Exec("INSERT INTO sessions (description, notes, task_id) VALUES (?, ?, ?)", session.Description, session.Notes, session.TaskID)
 	if err != nil {
 		return "", err
 	}
