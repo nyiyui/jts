@@ -39,7 +39,7 @@
         </child>
         <child>
           <object class="GtkLabel">
-            <property name="label">セッション名</property>
+            <property name="label">セッションID</property>
             <layout>
               <property name="column">0</property>
               <property name="row">1</property>
