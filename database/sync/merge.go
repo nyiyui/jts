@@ -63,13 +63,13 @@ func replace(tx *sqlx.Tx, ed ExportedDatabase) error {
 	}
 
 	for _, s := range ed.Sessions {
-		_, err = tx.Exec("INSERT INTO sessions (id, description, notes) VALUES (?, ?, ?)", s.ID, s.Description, s.Notes)
+		_, err = tx.Exec("INSERT INTO sessions (id, description, notes, task_id) VALUES (?, ?, ?, ?)", s.ID, s.Description, s.Notes, s.TaskID)
 		if err != nil {
 			return err
 		}
 	}
 	for _, tf := range ed.Timeframes {
-		_, err = tx.Exec("INSERT INTO time_frames (id, session_id, start_time, end_time) VALUES (?, ?, ?, ?)", tf.ID, tf.SessionID, tf.Start, tf.End)
+		_, err = tx.Exec("INSERT INTO time_frames (id, session_id, start_time, end_time, done) VALUES (?, ?, ?, ?, ?)", tf.ID, tf.SessionID, tf.Start, tf.End, tf.Done)
 		if err != nil {
 			return err
 		}
