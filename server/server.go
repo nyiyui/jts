@@ -54,6 +54,8 @@ func (s *Server) setupHandlers() {
 	s.mux.HandleFunc("GET /login", s.handleLogin)
 	s.mux.HandleFunc("GET /login/callback", s.handleLoginCallback)
 	s.mux.HandleFunc("GET /login/settings", s.handleLoginSettings)
+
+	s.mux.Handle("GET /session/{id}", s.userAuthz(PermissionViewDatabase)(http.HandlerFunc(s.handleGetSession)))
 }
 
 type serverLock struct {

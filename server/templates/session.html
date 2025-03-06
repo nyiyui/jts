@@ -1,0 +1,12 @@
+{{ template "base.html" $ }}
+{{ define "title" }}
+{{ .Session.Description }}
+{{ end }}
+{{ define "head-extra" }}
+<meta name="description" content="{{ .Session.Description }}" />
+{{ end }}
+{{ define "body" }}
+{{ .Session.Description }}
+{{ end }}
+
+

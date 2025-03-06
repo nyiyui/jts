@@ -24,6 +24,7 @@ type Permission string
 
 const (
 	PermissionSyncDatabase Permission = "database:sync"
+	PermissionViewDatabase Permission = "database:view"
 )
 
 func (s *Server) apiAuthz(permissionsRequired ...Permission) func(next http.Handler) http.Handler {
