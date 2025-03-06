@@ -19,15 +19,15 @@ type ExportedDatabase struct {
 
 func Export(d *database.Database) (ExportedDatabase, error) {
 	var ed ExportedDatabase
-	err := d.DB.Select(&ed.Sessions, "SELECT id, description, notes FROM sessions")
+	err := d.DB.Select(&ed.Sessions, "SELECT * FROM sessions")
 	if err != nil {
 		return ExportedDatabase{}, err
 	}
-	err = d.DB.Select(&ed.Timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames")
+	err = d.DB.Select(&ed.Timeframes, "SELECT * FROM time_frames")
 	if err != nil {
 		return ExportedDatabase{}, err
 	}
-	err = d.DB.Select(&ed.Tasks, "SELECT id, description FROM tasks")
+	err = d.DB.Select(&ed.Tasks, "SELECT * FROM tasks")
 	if err != nil {
 		return ExportedDatabase{}, err
 	}

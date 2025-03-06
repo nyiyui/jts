@@ -88,7 +88,7 @@ func (d *Database) Migrate() error {
 func (d *Database) GetLatestSessions(limit, offset int) ([]data.Session, error) {
 	var sessions []data.Session
 	err := d.DB.Select(&sessions, `
-SELECT id, description, notes FROM sessions
+SELECT * FROM sessions
 ORDER BY (SELECT MAX(end_time) FROM time_frames WHERE session_id = sessions.id)
 DESC LIMIT ? OFFSET ?
 `, limit, offset)
@@ -97,7 +97,7 @@ DESC LIMIT ? OFFSET ?
 	}
 	for i := range sessions {
 		var timeframes []data.Timeframe
-		err = d.DB.Select(&timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames WHERE session_id = ?", sessions[i].ID)
+		err = d.DB.Select(&timeframes, "SELECT * FROM time_frames WHERE session_id = ?", sessions[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("get timeframes for session %s: %w", sessions[i].ID, err)
 		}
@@ -108,12 +108,12 @@ DESC LIMIT ? OFFSET ?
 
 func (d *Database) GetSession(id string) (data.Session, error) {
 	var session data.Session
-	err := d.DB.Get(&session, "SELECT id, description, notes FROM sessions WHERE id = ?", id)
+	err := d.DB.Get(&session, "SELECT * FROM sessions WHERE id = ?", id)
 	if err != nil {
 		return data.Session{}, err
 	}
 	var timeframes []data.Timeframe
-	err = d.DB.Select(&timeframes, "SELECT id, session_id, start_time, end_time FROM time_frames WHERE session_id = ?", id)
+	err = d.DB.Select(&timeframes, "SELECT * FROM time_frames WHERE session_id = ?", id)
 	if err != nil {
 		return data.Session{}, err
 	}
@@ -202,7 +202,7 @@ func (d *Database) DeleteSession(id string) error {
 func (d *Database) GetUndoneTasks() ([]data.Task, error) {
 	var tasks []data.Task
 	err := d.DB.Select(&tasks, `
-SELECT id, description
+SELECT *
 FROM tasks
 WHERE id IN (SELECT task_id
              FROM sessions
@@ -210,7 +210,7 @@ WHERE id IN (SELECT task_id
 						              FROM time_frames
 													WHERE time_frames.done = FALSE))
 UNION ALL
-SELECT id, description
+SELECT *
 FROM tasks
 WHERE id NOT IN (SELECT task_id FROM sessions WHERE task_id IS NOT NULL)
 `)

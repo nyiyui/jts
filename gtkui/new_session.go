@@ -48,6 +48,10 @@ func (nsw *NewSessionWindow) SetTask(task data.Task) {
 
 func (nsw *NewSessionWindow) save() {
 	buf := nsw.SessionNotes.Buffer()
+	var taskID *string
+	if nsw.task.ID != "" {
+		taskID = &nsw.task.ID
+	}
 	_, err := nsw.db.AddSession(data.Session{
 		Description: nsw.SessionDescription.Buffer().Text(),
 		Notes:       buf.Text(buf.StartIter(), buf.EndIter(), false),
@@ -57,7 +61,7 @@ func (nsw *NewSessionWindow) save() {
 				End:   time.Now(),
 			},
 		},
-		TaskID: nsw.task.ID,
+		TaskID: taskID,
 	})
 	if err != nil {
 		panic(err)

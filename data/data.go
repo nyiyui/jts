@@ -8,11 +8,12 @@ import (
 // Session represents one (possible non-continuous) session of some activity.
 // Example: one gaming session, playing Mario Kart
 type Session struct {
+	Rowid       int         `db:"rowid"` // rowid shall not be considered for equality
 	ID          string      `db:"id"`
 	Description string      `db:"description"`
 	Notes       string      `db:"notes"`
 	Timeframes  []Timeframe `json:"timeframes,omitempty"`
-	TaskID      string      `db:"task_id"`
+	TaskID      *string     `db:"task_id"`
 }
 
 func (s Session) EqualProperties(other Session) bool {
@@ -24,6 +25,7 @@ func (s Session) Equal(other Session) bool {
 }
 
 type Timeframe struct {
+	Rowid     int       `db:"rowid"` // rowid shall not be considered for equality
 	ID        string    `db:"id"`
 	SessionID string    `db:"session_id"`
 	Start     time.Time `db:"start_time"`
@@ -56,6 +58,7 @@ func (tf Timeframe) Duration() time.Duration {
 }
 
 type Task struct {
+	Rowid       int    `db:"rowid"` // rowid shall not be considered for equality
 	ID          string `db:"id"`
 	Description string `db:"description"`
 }

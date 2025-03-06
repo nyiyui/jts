@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
@@ -24,6 +25,8 @@ type EditSessionWindow struct {
 	SessionId          *gtk.Label
 	SaveButton         *gtk.Button
 	DeleteButton       *gtk.Button
+	TaskIDLabel        *gtk.Label
+	TaskID             *gtk.Label
 	SessionDescription *gtk.Entry
 	SessionNotes       *gtk.TextView
 	Timeframes         *gtk.ColumnView
@@ -41,6 +44,8 @@ func NewEditSessionWindow(db *database.Database, sessionID string, changed chan<
 	esw.SessionId.SetLabel(sessionID)
 	esw.SaveButton = builder.GetObject("SaveButton").Cast().(*gtk.Button)
 	esw.DeleteButton = builder.GetObject("DeleteButton").Cast().(*gtk.Button)
+	esw.TaskIDLabel = builder.GetObject("TaskIDLabel").Cast().(*gtk.Label)
+	esw.TaskID = builder.GetObject("TaskID").Cast().(*gtk.Label)
 	esw.SessionDescription = builder.GetObject("SessionDescription").Cast().(*gtk.Entry)
 	esw.SessionNotes = builder.GetObject("SessionNotes").Cast().(*gtk.TextView)
 	esw.SaveButton.ConnectClicked(esw.save)
@@ -55,6 +60,12 @@ func NewEditSessionWindow(db *database.Database, sessionID string, changed chan<
 		esw.Window.SetTitle(fmt.Sprintf("%sを修正", session.Description))
 		esw.SessionDescription.SetText(session.Description)
 		esw.SessionNotes.Buffer().SetText(session.Notes)
+		log.Printf("task id: %v", session.TaskID)
+		if session.TaskID != nil {
+			esw.TaskIDLabel.SetVisible(true)
+			esw.TaskID.SetVisible(true)
+			esw.TaskID.SetLabel(*session.TaskID)
+		}
 	}
 	esw.Timeframes = builder.GetObject("Timeframes").Cast().(*gtk.ColumnView)
 	m := NewTimeframeListModel(esw.db, sessionID)
